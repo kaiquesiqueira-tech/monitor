@@ -226,8 +226,8 @@ tbody tr{cursor:pointer}
 </section>
 
 <nav class="tabs" role="tablist">
-  <button class="tab" role="tab" id="t-pc" aria-selected="true" onclick="setTab('pc')">Pedidos em atraso <span class="c" id="c-pc"></span></button>
-  <button class="tab" role="tab" id="t-sc" aria-selected="false" onclick="setTab('sc')">Solicitações sem pedido <span class="c" id="c-sc"></span></button>
+  <button class="tab" role="tab" id="t-pc" aria-selected="true" onclick="setTab('pc')">Pedidos de compra <span class="c" id="c-pc"></span></button>
+  <button class="tab" role="tab" id="t-sc" aria-selected="false" onclick="setTab('sc')">Solicitações de compra <span class="c" id="c-sc"></span></button>
   <button class="tab" role="tab" id="t-rs" aria-selected="false" onclick="setTab('rs')">Resumo</button>
   <button class="tab" role="tab" id="t-im" aria-selected="false" onclick="setTab('im')">Importar base</button>
 </nav>
@@ -243,7 +243,7 @@ tbody tr{cursor:pointer}
   <div class="f"><label for="fGru">Grupo</label><select id="fGru"></select></div>
   <div class="f" id="wCmp"><label for="fCmp">Comprador</label><select id="fCmp"></select></div>
   <div class="f" id="wFor"><label for="fFor">Fornecedor</label><select id="fFor"></select></div>
-  <div class="f" id="wDias"><label for="fDias">Atraso mínimo (dias)</label><input type="number" id="fDias" min="0" step="1" value="1"></div>
+  <div class="f" id="wDias"><label for="fSit">Situação</label><select id="fSit"></select></div>
   <div class="spacer"></div>
   <div class="f"><label>&nbsp;</label><button class="btn ghost" onclick="limpar()">Limpar filtros</button></div>
   <div class="f"><label>&nbsp;</label><button class="btn" onclick="exportar()">Baixar Excel</button></div>
@@ -350,11 +350,25 @@ const df = d => d.slice(8,10)+'/'+d.slice(5,7)+'/'+d.slice(0,4);
 const dias = iso => Math.round((hoje - new Date(iso+'T00:00:00'))/DIA);
 const esc = s => String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
-const FAIXAS=[{k:'a',l:'1 a 30 dias',min:1,max:30,c:'var(--s1)'},
-              {k:'b',l:'31 a 90 dias',min:31,max:90,c:'var(--s2)'},
-              {k:'c',l:'91 a 180 dias',min:91,max:180,c:'var(--s3)'},
-              {k:'d',l:'mais de 180 dias',min:181,max:1e9,c:'var(--s4)'}];
-const faixa = d => FAIXAS.find(f=>d>=f.min&&d<=f.max) || FAIXAS[0];
+const FX = {
+  pc:[{k:'p',l:'dentro do prazo',min:-1e9,max:0,c:'var(--go)'},
+      {k:'a',l:'vencido até 30 dias',min:1,max:30,c:'var(--s1)'},
+      {k:'b',l:'vencido 31 a 90 dias',min:31,max:90,c:'var(--s2)'},
+      {k:'c',l:'vencido 91 a 180 dias',min:91,max:180,c:'var(--s3)'},
+      {k:'d',l:'vencido há mais de 180 dias',min:181,max:1e9,c:'var(--s4)'}],
+  sc:[{k:'a',l:'até 30 dias',min:-1e9,max:30,c:'var(--s1)'},
+      {k:'b',l:'31 a 90 dias',min:31,max:90,c:'var(--s2)'},
+      {k:'c',l:'91 a 180 dias',min:91,max:180,c:'var(--s3)'},
+      {k:'d',l:'mais de 180 dias',min:181,max:1e9,c:'var(--s4)'}]
+};
+const faixas = () => FX[tab==='sc'?'sc':'pc'];
+const faixa = d => faixas().find(f=>d>=f.min&&d<=f.max) || faixas()[0];
+
+/* opções do seletor Situação, por aba */
+const SIT = {
+  pc:[['-999999','Todos os pedidos'],['1','Só os vencidos'],['31','Vencidos há mais de 30 dias'],['91','Vencidos há mais de 90 dias']],
+  sc:[['-999999','Todas as solicitações'],['31','Paradas há mais de 30 dias'],['61','Paradas há mais de 60 dias'],['91','Paradas há mais de 90 dias']]
+};
 
 function obj(cols,row){const o={};cols.forEach((c,i)=>o[c]=row[i]);return o;}
 let PC=[], SC=[];
@@ -379,9 +393,9 @@ const COLS={
 function escopo(){ return +document.getElementById('fPP').value; }
 function nopp(r){ return r.pp >= escopo(); }
 function baseRows(){
-  const min = +document.getElementById('fDias').value || 0;
-  return tab==='pc' ? PC.filter(r=>r.atraso>=Math.max(min,1)&&nopp(r))
-                    : SC.filter(r=>r.idade>=Math.max(min,1)&&nopp(r));
+  const min = +document.getElementById('fSit').value;
+  return tab==='pc' ? PC.filter(r=>r.atraso>=min&&nopp(r))
+                    : SC.filter(r=>r.idade>=min&&nopp(r));
 }
 function filtrar(rows){
   const q=document.getElementById('q').value.trim().toLowerCase();
@@ -411,8 +425,8 @@ function ordenar(rows){
 
 /* ---------- render ---------- */
 function contadores(){
-  document.getElementById('c-pc').textContent = PC.filter(r=>r.atraso>0&&nopp(r)).length;
-  document.getElementById('c-sc').textContent = SC.filter(r=>r.idade>30&&nopp(r)).length;
+  document.getElementById('c-pc').textContent = PC.filter(nopp).length.toLocaleString('pt-BR');
+  document.getElementById('c-sc').textContent = SC.filter(nopp).length.toLocaleString('pt-BR');
 }
 function render(){
   contadores();
@@ -425,15 +439,20 @@ function render(){
     `<th class="${s.k===c.k?'on':''} ${c.num?'num':''}"><button onclick="ordena('${c.k}')">${c.l}${s.k===c.k?(s.dir<0?' ↓':' ↑'):''}</button></th>`).join('');
   const tb=document.getElementById('tbody');
   if(!rows.length){
-    tb.innerHTML=`<tr><td colspan="${cols.length+1}"><div class="empty"><b>Nada nesta faixa</b>Ajuste os filtros acima para ver outros itens.</div></td></tr>`;
+    tb.innerHTML=`<tr><td colspan="${cols.length+1}"><div class="empty"><b>Nada por aqui</b>Ajuste os filtros acima para ver outros itens.</div></td></tr>`;
   } else {
-    tb.innerHTML=ordenar(rows).slice(0,1200).map(r=>linha(r,cols)).join('');
+    tb.innerHTML=ordenar(rows).slice(0,2500).map(r=>linha(r,cols)).join('');
   }
   document.getElementById('cnt').textContent =
-    rows.length.toLocaleString('pt-BR')+' itens listados'+(rows.length>1200?' (mostrando os 1.200 primeiros — use os filtros ou baixe o CSV)':'');
-  document.getElementById('tot').textContent = tab==='pc'
-    ? 'Valor total em atraso: '+mf.format(rows.reduce((s,r)=>s+r.valor,0))
-    : rows.length+' solicitações aguardando pedido';
+    rows.length.toLocaleString('pt-BR')+' itens listados'+(rows.length>2500?' (a tela mostra os 2.500 primeiros — filtre mais ou baixe o Excel)':'');
+  if(tab==='pc'){
+    const venc = rows.filter(r=>r.atraso>0);
+    document.getElementById('tot').textContent =
+      'Valor em aberto: '+mf.format(rows.reduce((s,r)=>s+r.valor,0))+
+      ' · vencido: '+mf.format(venc.reduce((s,r)=>s+r.valor,0));
+  } else {
+    document.getElementById('tot').textContent = rows.filter(r=>r.idade>30).length+' com mais de 30 dias';
+  }
 }
 
 function linha(r,cols){
@@ -444,7 +463,9 @@ function linha(r,cols){
     else if(c.k==='qtd') t=nf.format(r.qtd)+' <span class="code">'+esc(r.um)+'</span>';
     else if(c.k==='valor') t=mf.format(r.valor);
     else if(c.k==='entrega'||c.k==='emissao') t=df(v);
-    else if(c.k==='atraso'||c.k==='idade') t=`<span class="dias" style="color:${f.c}">${d} d</span>`;
+    else if(c.k==='atraso') t = d>0 ? `<span class="dias" style="color:${f.c}">${d} d</span>`
+            : `<span class="dias" style="color:${f.c}">${d===0?'vence hoje':'no prazo'}</span>`;
+    else if(c.k==='idade') t=`<span class="dias" style="color:${f.c}">${d} d</span>`;
     else if(c.k==='ppq') t = r.pp ? nf.format(r.ppq)+' <span class="code">'+esc(r.um)+'</span>'+(r.lote?'<div class="code">lote '+nf.format(r.lote)+'</div>':'')+(r.pp===1?'<div class="code">outra filial</div>':'') : '<span class="code">sem PP</span>';
     else if(c.k==='sc'&&tab==='pc') t=v?v:'<span class="code">sem SC</span>';
     else if(c.k==='sc'&&tab==='sc') t=`${r.sc}<span class="code"> / item ${r.item}</span>`;
@@ -455,23 +476,25 @@ function linha(r,cols){
 }
 
 function renderHero(rows){
-  const pcv = tab==='sc' ? null : rows;
+  document.getElementById('heroN').textContent = rows.length.toLocaleString('pt-BR');
   if(tab==='sc'){
-    document.getElementById('heroN').textContent = rows.length.toLocaleString('pt-BR');
-    document.getElementById('heroCap').textContent = 'solicitações de compra sem pedido, dentro do filtro atual';
-    const vel = rows.filter(r=>r.idade>90).length;
-    document.getElementById('heroV').innerHTML = `<b>${vel}</b> delas já passaram de 90 dias.`;
+    document.getElementById('heroCap').textContent = 'itens de solicitação sem pedido gerado';
+    const p30 = rows.filter(r=>r.idade>30).length, p90 = rows.filter(r=>r.idade>90).length;
+    document.getElementById('heroV').innerHTML = p30
+      ? `<b>${p30}</b> parados há mais de 30 dias, sendo ${p90} há mais de 90.`
+      : 'Nenhum parado há mais de 30 dias.';
   } else {
-    const v = rows.reduce((s,r)=>s+r.valor,0);
-    document.getElementById('heroN').textContent = rows.length.toLocaleString('pt-BR');
-    document.getElementById('heroCap').textContent = 'itens de pedido com entrega vencida';
-    const ped = new Set(rows.map(r=>r.filial+r.pedido)).size;
-    document.getElementById('heroV').innerHTML = `<b>${mf.format(v)}</b> em ${ped} pedidos, de ${new Set(rows.map(r=>r.forn)).size} fornecedores.`;
+    const venc = rows.filter(r=>r.atraso>0);
+    const v = venc.reduce((s,r)=>s+r.valor,0);
+    document.getElementById('heroCap').textContent = 'itens de pedido em aberto';
+    document.getElementById('heroV').innerHTML = venc.length
+      ? `<b>${venc.length}</b> com entrega vencida, ${mf.format(v)} em ${new Set(venc.map(r=>r.filial+r.pedido)).size} pedidos.`
+      : 'Nenhuma entrega vencida no filtro atual.';
   }
   // faixas calculadas sobre a base sem o filtro de faixa
   const all = filtrarSemFaixa();
   const tot = all.length||1;
-  document.getElementById('strip').innerHTML = FAIXAS.map(f=>{
+  document.getElementById('strip').innerHTML = faixas().map(f=>{
     const n = all.filter(r=>{const d=tab==='pc'?r.atraso:r.idade;return d>=f.min&&d<=f.max;}).length;
     const w = Math.max(n/tot*100, n?7:0);
     return `<button class="seg ${n?'':'z'}" style="background:${f.c};flex:0 0 ${w}%" aria-pressed="${sel===f.k}"
@@ -531,8 +554,7 @@ function setTab(t){
   document.getElementById('filters').style.display = lista?'':'none';
   document.getElementById('wCmp').style.display = t==='pc'?'':'none';
   document.getElementById('wFor').style.display = t==='pc'?'':'none';
-  if(lista) document.getElementById('fDias').value = t==='pc'?1:31;
-  if(lista) document.querySelector('label[for=fDias]').textContent = t==='pc'?'Atraso mínimo (dias)':'Parada há mais de (dias)';
+  if(lista) opts('fSit', SIT[t], null);
   render();
 }
 function toggleFaixa(k){ sel = sel===k?null:k; render(); }
@@ -540,10 +562,10 @@ function ordena(k){ const s=sort[tab]; if(s.k===k) s.dir*=-1; else {s.k=k;s.dir=
 function limpar(){
   ['q','fFil','fGru','fCmp','fFor'].forEach(i=>document.getElementById(i).value='');
   document.getElementById('fPP').value='2';
-  document.getElementById('fDias').value = tab==='pc'?1:31; sel=null; render();
+  document.getElementById('fSit').value='-999999'; sel=null; render();
 }
 function opts(id,vals,label){
-  document.getElementById(id).innerHTML='<option value="">'+label+'</option>'+
+  document.getElementById(id).innerHTML=(label===null?'':'<option value="">'+label+'</option>')+
     vals.map(v=>`<option value="${esc(v[0])}">${esc(v[1])}</option>`).join('');
 }
 function exportar(){
@@ -557,12 +579,12 @@ function exportar(){
   const lin = r => tab==='pc'
     ? [r.filial,r.emp,r.pedido,r.produto,r.desc,r.qtd,r.um,r.preco,Number(r.valor.toFixed(2)),r.emissao,r.entrega,r.atraso,r.ppq,r.lote,r.forn,r.comprador,r.sc,r.grupo,r.cc]
     : [r.filial,r.emp,r.sc,r.item,r.produto,r.desc,r.qtd,r.um,r.emissao,r.idade,r.ppq,r.lote,r.grupo,r.cc];
-  const aba = tab==='pc'?'Pedidos em atraso':'Solicitacoes paradas';
+  const aba = tab==='pc'?'Pedidos de compra':'Solicitacoes de compra';
   const bytes = xlsx(aba,cab,rows.map(lin),larg);
   const blob = new Blob([bytes],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
-  a.download=(tab==='pc'?'pedidos_em_atraso_':'solicitacoes_paradas_')+new Date().toISOString().slice(0,10)+'.xlsx';
+  a.download=(tab==='pc'?'pedidos_de_compra_':'solicitacoes_de_compra_')+new Date().toISOString().slice(0,10)+'.xlsx';
   a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1500);
 }
 
@@ -1003,7 +1025,7 @@ function popularFiltros(){
 }
 (function init(){
   carimbo(); popularFiltros();
-  ['q','fPP','fFil','fGru','fCmp','fFor','fDias'].forEach(i=>{
+  ['q','fPP','fFil','fGru','fCmp','fFor','fSit'].forEach(i=>{
     const el=document.getElementById(i);
     el.addEventListener(i==='q'?'input':'change',()=>{sel=null;render();});
   });

@@ -79,4 +79,7 @@ então o monitor continua correto entre uma atualização e outra.
   Serve para achar falha de cadastro.
 - **Todos os itens** — sem filtro, incluindo compras que não são de reposição.
 
-As faixas de cor seguem o tempo de atraso: até 30 dias, 31 a 90, 91 a 180 e acima de 180.
+O monitor abre mostrando **todos** os pedidos e todas as solicitações em aberto. O seletor
+**Situação** restringe para só os vencidos, vencidos há mais de 30 dias, e assim por diante.
+As faixas de cor no topo separam o que está dentro do prazo do que está vencido, em blocos de
+até 30 dias, 31 a 90, 91 a 180 e acima de 180 — clicar numa faixa filtra a lista.
