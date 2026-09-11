@@ -90,12 +90,12 @@ def ler_parametros(codigos_usados):
             float(campos["pp"][i]), float(campos["lote"][i]), float(campos["emax"][i]),
             float(campos["seg"][i]), float(campos["emb"][i]), float(campos["ultpreco"][i]),
             data(linha["Ult. Compra"]), data(linha["Cons.Inicial"]), data(linha["Data Incl."]),
-            str(linha["Armazem Pad."]).strip(),
+            str(linha["Armazem Pad."]).strip().zfill(2),
         ]
         if chave not in parm or valor[0] > parm[chave][0]:
             parm[chave] = valor
 
-    total_pp = len(df)
+    total_pp = len(df)  # linhas com código válido
     return parm, total_pp
 
 
