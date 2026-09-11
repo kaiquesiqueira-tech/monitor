@@ -1,4 +1,4 @@
-# Monitor de compras — Barro Alto
+# MONITOR PC E SC ALMOXARIFADO
 
 Acompanhamento de pedidos de compra com entrega vencida e solicitações de compra
 paradas há mais de 30 dias, restrito aos itens que têm ponto de pedido cadastrado

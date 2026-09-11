@@ -1,7 +1,7 @@
 {
-  "name": "Monitor de compras — Barro Alto",
-  "short_name": "Monitor compras",
-  "description": "Pedidos de compra vencidos e solicitações paradas de itens com ponto de pedido.",
+  "name": "MONITOR PC E SC ALMOXARIFADO",
+  "short_name": "Monitor PC e SC",
+  "description": "Pedidos e solicitações de compra do almoxarifado, itens com ponto de pedido.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
