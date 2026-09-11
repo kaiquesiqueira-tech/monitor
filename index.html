@@ -120,7 +120,8 @@ tbody tr:hover{background:#F6F7F3}
   border:1px solid var(--line);background:var(--panel);border-radius:2px;cursor:pointer;color:var(--ink)}
 .imp-acoes{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
 #impStatus{margin-top:16px;font-size:13.5px}
-#impStatus .st{padding:9px 12px;background:#F6F7F3;border-left:3px solid var(--s1);margin-bottom:7px}
+#impAtual{font-size:13px;margin-bottom:14px}
+#impStatus .st,#impAtual.st{padding:9px 12px;background:#F6F7F3;border-left:3px solid var(--s1);margin-bottom:7px}
 #impStatus .st.erro{border-left-color:var(--s4)}
 #impStatus .st.fim{border-left-color:var(--go)}
 #impStatus ul{margin:6px 0 0;padding-left:18px;color:var(--muted)}
@@ -259,6 +260,7 @@ tbody tr{cursor:pointer}
     <p class="impp">Exporte os browses do Protheus em Excel e carregue aqui. A leitura acontece no seu
       aparelho: nenhum arquivo é enviado para a internet. Ao final, baixe o <b>dados.js</b> e substitua
       o do repositório para que todo mundo veja a base nova.</p>
+    <div id="impAtual" class="st"></div>
     <div class="imp-grid">
       <div class="imp-f">
         <label for="aPC">Pedidos de compra <span class="code">MATA121</span></label>
@@ -525,6 +527,7 @@ function setTab(t){
   document.getElementById('viewTable').style.display = lista?'':'none';
   document.getElementById('viewResumo').style.display = t==='rs'?'':'none';
   document.getElementById('viewImport').style.display = t==='im'?'':'none';
+  if(t==='im') baseAtual();
   document.getElementById('filters').style.display = lista?'':'none';
   document.getElementById('wCmp').style.display = t==='pc'?'':'none';
   document.getElementById('wFor').style.display = t==='pc'?'':'none';
@@ -925,6 +928,14 @@ function aviso(texto, classe){
 }
 const respira = () => new Promise(r=>setTimeout(r,30));
 
+function baseAtual(){
+  const el = document.getElementById('impAtual');
+  if(!el) return;
+  el.innerHTML = `Base carregada agora: <b>${df(DADOS.gerado)}</b> — ${DADOS.pc.length.toLocaleString('pt-BR')} linhas de pedido, `+
+    `${DADOS.sc.length.toLocaleString('pt-BR')} de solicitação e ${Object.keys(DADOS.parm).length.toLocaleString('pt-BR')} itens com ponto de pedido. `+
+    `Carregar arquivos novos substitui tudo isso: o que não vier na exportação nova some da tela.`;
+}
+
 async function importar(){
   const alvo = document.getElementById('impStatus');
   alvo.innerHTML = '';
@@ -946,6 +957,7 @@ async function importar(){
     else aviso('Sem arquivo de ponto de pedido: mantendo o cadastro que já estava carregado.');
 
     const novo = converter(lPC, lSC, lPP);
+    const anterior = DADOS.gerado;
     DADOS = novo; window.DADOS = novo;
     montar(); carimbo(); popularFiltros();
 
@@ -956,7 +968,9 @@ async function importar(){
       <li>${novo.pc.length.toLocaleString('pt-BR')} linhas de pedido, ${atras} vencidas em itens com ponto de pedido</li>
       <li>${novo.sc.length.toLocaleString('pt-BR')} linhas de solicitação, ${parad} paradas há mais de 30 dias</li>
       <li>${Object.keys(novo.parm).length.toLocaleString('pt-BR')} itens com ponto de pedido cruzados</li></ul>
-      Baixe o dados.js e substitua o do repositório para publicar esta base.`,'fim');
+      A base de ${df(anterior)} foi substituída por completo. Baixe o dados.js e substitua o do repositório
+      para publicar esta base — o nome do arquivo é o mesmo, então ele sobrescreve o antigo.`,'fim');
+    baseAtual();
     document.getElementById('btBaixar').style.display = '';
     render();
   }catch(e){
