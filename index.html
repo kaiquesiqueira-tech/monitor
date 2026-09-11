@@ -149,6 +149,16 @@ tbody tr:hover{background:var(--panel2)}
 #impStatus .st.fim{border-left-color:var(--go)}
 #impStatus ul{margin:6px 0 0;padding-left:18px;color:var(--muted)}
 
+/* aviso de base nova */
+#avisoBase{position:fixed;left:50%;bottom:22px;transform:translate(-50%,140%);z-index:60;
+  display:flex;align-items:center;gap:14px;max-width:calc(100% - 28px);
+  background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--go);
+  box-shadow:0 6px 26px rgba(0,0,0,.18);padding:12px 14px;font-size:13.5px;transition:transform .28s ease}
+#avisoBase.on{transform:translate(-50%,0)}
+#avisoBase button{background:none;border:1px solid var(--line);border-radius:2px;padding:4px 9px;
+  cursor:pointer;font-size:12.5px;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){#avisoBase{transition:none}}
+
 /* mobile */
 @media (max-width:900px){
   .wrap{padding:14px 12px 40px}
@@ -323,6 +333,7 @@ tbody tr{cursor:pointer}
 </div>
 </div>
 
+<div id="avisoBase" role="status" aria-live="polite"><span id="avisoTexto"></span><button onclick="esconderAviso()">Fechar</button></div>
 <div id="scrim" onclick="fechar()"></div>
 <aside id="drawer" role="dialog" aria-modal="true" aria-labelledby="dTitulo" tabindex="-1">
   <div class="dhead">
@@ -1037,6 +1048,57 @@ function baixarBase(){
   setTimeout(()=>URL.revokeObjectURL(a.href),1500);
 }
 
+/* ---------- base sempre atual ---------- */
+/* A cada poucos minutos o app pergunta ao servidor se o dados.js mudou.
+   Se mudou, ele baixa a base nova e troca na tela, sem recarregar a página. */
+const INTERVALO_BASE = 5*60*1000;
+let marcaBase = null, checando = false;
+
+function mostrarAviso(texto){
+  document.getElementById('avisoTexto').textContent = texto;
+  document.getElementById('avisoBase').classList.add('on');
+  clearTimeout(mostrarAviso.t);
+  mostrarAviso.t = setTimeout(esconderAviso, 12000);
+}
+function esconderAviso(){ document.getElementById('avisoBase').classList.remove('on'); }
+
+async function marcaRemota(){
+  const r = await fetch('dados.js?v='+Date.now(), {method:'HEAD', cache:'no-store'});
+  if(!r.ok) return null;
+  return r.headers.get('etag') || r.headers.get('last-modified') || r.headers.get('content-length');
+}
+
+async function trocarPelaBaseNova(){
+  const r = await fetch('dados.js?v='+Date.now(), {cache:'no-store'});
+  const txt = await r.text();
+  const novo = JSON.parse(txt.replace(/^\s*window\.DADOS\s*=\s*/,'').replace(/;\s*$/,''));
+  if(!novo || !Array.isArray(novo.pc)) throw new Error('base inválida');
+  DADOS = novo; window.DADOS = novo;
+  montar(); carimbo(); popularFiltros(); render();
+  if(document.getElementById('impAtual') && tab==='im') baseAtual();
+  mostrarAviso('Base atualizada para '+df(novo.gerado)+'.');
+}
+
+async function verificarBase(){
+  if(!/^https?:/.test(location.protocol) || checando) return;
+  checando = true;
+  try{
+    const marca = await marcaRemota();
+    if(marca){
+      if(marcaBase === null) marcaBase = marca;
+      else if(marca !== marcaBase){ marcaBase = marca; await trocarPelaBaseNova(); }
+    }
+  }catch(e){ /* sem rede: segue com a base que já está carregada */ }
+  finally{ checando = false; }
+}
+
+function ligarAtualizacao(){
+  verificarBase();
+  setInterval(verificarBase, INTERVALO_BASE);
+  document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) verificarBase(); });
+  window.addEventListener('focus', verificarBase);
+}
+
 /* ---------- tema claro e escuro ---------- */
 const SOL='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.4M12 19.6V22M4.2 4.2l1.7 1.7M18.1 18.1l1.7 1.7M2 12h2.4M19.6 12H22M4.2 19.8l1.7-1.7M18.1 5.9l1.7-1.7"/></svg>';
 const LUA='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 14.6A8.6 8.6 0 0 1 9.4 3.5a8.6 8.6 0 1 0 11.1 11.1z"/></svg>';
@@ -1080,6 +1142,7 @@ function popularFiltros(){
     el.addEventListener(i==='q'?'input':'change',()=>{sel=null;render();});
   });
   setTab('pc');
+  ligarAtualizacao();
   if('serviceWorker' in navigator && location.protocol==='https:'){
     navigator.serviceWorker.register('sw.js').catch(()=>{});
   }

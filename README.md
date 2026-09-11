@@ -56,6 +56,26 @@ sem ele, o monitor mantém o cadastro que já estava carregado.
 Requer Chrome ou Edge 103+, Firefox 113+ ou Safari 16.4+, que é onde o navegador sabe
 descompactar o .xlsx sozinho.
 
+## Publicando com um clique
+
+Depois de salvar as exportações do Protheus na pasta `dados`, dê dois cliques em
+**publicar.bat**. Ele gera o `dados.js`, faz o commit e envia para o GitHub, e avisa
+na tela se algum arquivo estiver faltando ou se não houver nada novo para enviar.
+
+Precisa de Python e Git instalados, e do repositório já conectado — o que é o caso
+se você já fez um `git push` pelo VS Code alguma vez.
+
+## Como os outros aparelhos recebem a atualização
+
+Ninguém precisa recarregar nada. Com o monitor aberto, o app pergunta ao servidor a cada
+cinco minutos se o `dados.js` mudou, e também sempre que a aba volta a ficar em foco.
+Quando detecta base nova, ele baixa e troca os dados na hora, mantendo a página aberta,
+e mostra um aviso discreto no rodapé com a data da nova base.
+
+Só é feita a troca quando o arquivo realmente mudou: a checagem normal é uma pergunta
+mínima ao servidor, sem baixar a base. Sem internet, o app continua funcionando com a
+última base carregada.
+
 ## Atualizando a base pelo script
 
 Alternativa para quem prefere linha de comando, ou para deixar automatizado:
