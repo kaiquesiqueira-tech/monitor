@@ -18,7 +18,8 @@ from pathlib import Path
 
 BASE = Path(__file__).parent
 ENTRADA = BASE / "dados"
-ARQUIVOS = ["mata121.xlsx", "mata110.xlsx", "PROD_EM_PP.xlsx"]
+INICIOS = ["mata121", "mata110", "PROD_EM_PP"]
+PLANILHAS = (".xlsx", ".xlsm", ".xls")
 
 INTERVALO = 10          # de quantos em quantos segundos olha a pasta
 ESPERA_ESTAVEL = 2      # leituras iguais seguidas antes de considerar a cópia terminada
@@ -32,14 +33,27 @@ def log(msg):
     print(f"[{agora()}] {msg}", flush=True)
 
 
+def achar(inicio):
+    """Acha o arquivo pelo começo do nome, tolerando 'mata121 (1).xlsx',
+    'mata121.xlsx.xlsx' e maiúsculas trocadas."""
+    if not ENTRADA.exists():
+        return None
+    achados = [a for a in ENTRADA.iterdir()
+               if a.is_file()
+               and a.name.lower().startswith(inicio.lower())
+               and a.suffix.lower() in PLANILHAS
+               and not a.name.startswith("~$")]
+    return max(achados, key=lambda a: a.stat().st_mtime) if achados else None
+
+
 def impressao_digital():
     """Tamanho e data de modificação de cada arquivo: muda se alguém salvou por cima."""
     marcas = []
-    for nome in ARQUIVOS:
-        caminho = ENTRADA / nome
-        if caminho.exists():
+    for inicio in INICIOS:
+        caminho = achar(inicio)
+        if caminho:
             info = caminho.stat()
-            marcas.append((nome, info.st_size, round(info.st_mtime)))
+            marcas.append((caminho.name, info.st_size, round(info.st_mtime)))
     return tuple(marcas)
 
 

@@ -24,17 +24,41 @@ BASE = Path(__file__).parent
 ENTRADA = BASE / "dados"
 SAIDA = BASE / "dados.js"
 
-ARQ_SC = ENTRADA / "mata110.xlsx"
-ARQ_PC = ENTRADA / "mata121.xlsx"
-ARQ_PP = ENTRADA / "PROD_EM_PP.xlsx"
+PLANILHAS = (".xlsx", ".xlsm", ".xls")
+
+
+def achar(inicio):
+    """Acha o arquivo pelo comeco do nome, ignorando maiusculas, sobras como
+    'mata121 (1).xlsx' e extensao duplicada como 'mata121.xlsx.xlsx'.
+    Havendo mais de um, fica com o mais recente."""
+    if not ENTRADA.exists():
+        return None
+    achados = [a for a in ENTRADA.iterdir()
+               if a.is_file()
+               and a.name.lower().startswith(inicio.lower())
+               and a.suffix.lower() in PLANILHAS
+               and not a.name.startswith("~$")]
+    return max(achados, key=lambda a: a.stat().st_mtime) if achados else None
+
+
+ARQ_SC = achar("mata110")
+ARQ_PC = achar("mata121")
+ARQ_PP = achar("PROD_EM_PP")
 
 
 def conferir_arquivos():
-    faltando = [a.name for a in (ARQ_SC, ARQ_PC, ARQ_PP) if not a.exists()]
+    faltando = [nome for nome, arq in
+                (("mata110", ARQ_SC), ("mata121", ARQ_PC), ("PROD_EM_PP", ARQ_PP))
+                if arq is None]
     if faltando:
-        print("Faltam arquivos na pasta 'dados': " + ", ".join(faltando))
-        print("Exporte os browses do Protheus com esses nomes e rode de novo.")
+        print("Nao achei na pasta 'dados': " + ", ".join(faltando))
+        if ENTRADA.exists():
+            tem = [a.name for a in sorted(ENTRADA.iterdir()) if a.is_file()]
+            print("O que existe la: " + (", ".join(tem) if tem else "nada"))
+        print("Exporte os browses do Protheus para essa pasta e rode de novo.")
         sys.exit(1)
+    for rotulo, arq in (("pedidos", ARQ_PC), ("solicitacoes", ARQ_SC), ("ponto de pedido", ARQ_PP)):
+        print(f"  {rotulo}: {arq.name}")
 
 
 def codigo(v):
