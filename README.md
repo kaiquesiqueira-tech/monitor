@@ -14,6 +14,8 @@ servidor, banco de dados nem instalação.
 | `index.html` | O monitor inteiro: tela, filtros, detalhe do produto e gerador de Excel |
 | `dados.js` | A base extraída do Protheus. É o único arquivo que muda a cada atualização |
 | `gerar_dados.py` | Converte os três relatórios do Protheus em `dados.js` |
+| `sincronizar.py`, `sincronizar.bat` | Vigia a pasta `dados` e publica sozinho quando os arquivos mudam |
+| `publicar.bat` | Gera e publica na hora, com um clique |
 | `dados/` | Onde ficam os `.xlsx` exportados do Protheus (não vão para o GitHub) |
 | `manifest.webmanifest`, `sw.js`, `icone*.png` | Fazem o site virar aplicativo instalável no celular |
 
@@ -56,6 +58,19 @@ sem ele, o monitor mantém o cadastro que já estava carregado.
 Requer Chrome ou Edge 103+, Firefox 113+ ou Safari 16.4+, que é onde o navegador sabe
 descompactar o .xlsx sozinho.
 
+## Sincronização automática
+
+Dê dois cliques em **sincronizar.bat** e deixe a janela aberta num canto. Ele fica de olho
+na pasta `dados`: assim que você salvar uma exportação nova do Protheus lá dentro, ele espera
+a cópia terminar, gera o `dados.js`, faz o commit e o push sem você pedir nada. Daí os
+aparelhos com o monitor aberto trocam de base sozinhos.
+
+Se a internet estiver fora na hora, ele avisa e tenta de novo na próxima mudança.
+Para parar, feche a janela.
+
+Para ele subir junto com o Windows: aperte Windows+R, digite `shell:startup`, e crie nessa
+pasta um atalho para o `sincronizar.bat`.
+
 ## Publicando com um clique
 
 Depois de salvar as exportações do Protheus na pasta `dados`, dê dois cliques em
@@ -68,7 +83,7 @@ se você já fez um `git push` pelo VS Code alguma vez.
 ## Como os outros aparelhos recebem a atualização
 
 Ninguém precisa recarregar nada. Com o monitor aberto, o app pergunta ao servidor a cada
-cinco minutos se o `dados.js` mudou, e também sempre que a aba volta a ficar em foco.
+dois minutos se o `dados.js` mudou, e também sempre que a aba volta a ficar em foco.
 Quando detecta base nova, ele baixa e troca os dados na hora, mantendo a página aberta,
 e mostra um aviso discreto no rodapé com a data da nova base.
 

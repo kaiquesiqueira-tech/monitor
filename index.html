@@ -1141,7 +1141,7 @@ function baixarBase(){
 /* ---------- base sempre atual ---------- */
 /* A cada poucos minutos o app pergunta ao servidor se o dados.js mudou.
    Se mudou, ele baixa a base nova e troca na tela, sem recarregar a página. */
-const INTERVALO_BASE = 5*60*1000;
+const INTERVALO_BASE = 2*60*1000;
 let marcaBase = null, checando = false;
 
 function mostrarAviso(texto){
