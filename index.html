@@ -273,7 +273,7 @@ tbody tr{cursor:pointer}
 </nav>
 
 <div class="filters" id="filters">
-  <div class="f"><label for="q">Buscar</label><input type="search" id="q" placeholder="produto, descrição, pedido, SC…"></div>
+  <div class="f"><label for="q">Buscar</label><input type="search" id="q" placeholder="produto, descrição, pedido, SC, data de emissão…"></div>
   <div class="f"><label for="fPP">Itens</label><select id="fPP">
       <option value="2">Com ponto de pedido na filial</option>
       <option value="1">Com ponto de pedido em qualquer filial</option>
@@ -441,8 +441,10 @@ function baseRows(){
   return tab==='pc' ? PC.filter(r=>r.atraso>=min&&nopp(r))
                     : SC.filter(r=>r.idade>=min&&nopp(r));
 }
+/* a busca também aceita data: 10/02/2026, 02/2026, 2026-02, 10.02.26 */
+const soData = t => t.replace(/[.\-]/g,'/');
 function filtrar(rows){
-  const q=document.getElementById('q').value.trim().toLowerCase();
+  const q=soData(document.getElementById('q').value.trim().toLowerCase());
   const fFil=document.getElementById('fFil').value, fGru=document.getElementById('fGru').value,
         fCmp=document.getElementById('fCmp').value, fFor=document.getElementById('fFor').value;
   return rows.filter(r=>{
@@ -452,7 +454,9 @@ function filtrar(rows){
     if(fGru && r.grupo!==fGru) return false;
     if(tab==='pc'){ if(fCmp && r.comprador!==fCmp) return false; if(fFor && r.forn!==fFor) return false; }
     if(q){
-      const hay = (r.produto+' '+r.desc+' '+(r.pedido||'')+' '+(r.sc||'')+' '+(r.forn||'')+' '+(r.comprador||'')).toLowerCase();
+      const datas = df(r.emissao)+' '+r.emissao.replace(/-/g,'/')+' '+df(r.emissao).slice(3);
+      const hay = soData((r.produto+' '+r.desc+' '+(r.pedido||'')+' '+(r.sc||'')+' '+
+                  (r.forn||'')+' '+(r.comprador||'')+' '+datas).toLowerCase());
       if(!hay.includes(q)) return false;
     }
     return true;

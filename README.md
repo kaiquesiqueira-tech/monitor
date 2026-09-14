@@ -102,6 +102,12 @@ o Excel vai junto com o texto. No computador abre o WhatsApp Web com a mensagem 
 só faltando escolher o contato ou o grupo — nesse caso o anexo não vai junto, use o
 Baixar Excel se precisar do arquivo.
 
+## Busca
+
+O campo **Buscar** varre descrição, código do produto, número do pedido ou da solicitação,
+fornecedor, comprador e a data de emissão. A data aceita vários formatos: `10/02/2026`,
+`10.02.2026`, `02/2026` para o mês inteiro, `2026` para o ano e `2026-02` no formato do sistema.
+
 ## Como os itens são classificados
 
 - **Com ponto de pedido na filial** — o produto tem cadastro no SBZ da mesma filial
