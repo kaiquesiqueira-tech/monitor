@@ -248,7 +248,8 @@ tbody tr{cursor:pointer}
   </button>
   <div class="stamp">
     Posição de <b id="hoje"></b><br>
-    Base extraída em <span id="base"></span> · <span id="npp"></span> itens com ponto de pedido
+    Base extraída em <span id="base"></span> · <span id="npp"></span> itens com ponto de pedido<br>
+    <span class="code" id="versao"></span>
   </div>
   </div>
 </header>
@@ -1142,7 +1143,9 @@ function baixarBase(){
 /* A cada poucos minutos o app pergunta ao servidor se o dados.js mudou.
    Se mudou, ele baixa a base nova e troca na tela, sem recarregar a página. */
 const INTERVALO_BASE = 2*60*1000;
+const VERSAO_APP = 'app 14/09/2026';
 let marcaBase = null, checando = false;
+let marcaApp = null, appDiferente = 0;
 
 function mostrarAviso(texto){
   document.getElementById('avisoTexto').textContent = texto;
@@ -1169,10 +1172,30 @@ async function trocarPelaBaseNova(){
   mostrarAviso('Base atualizada para '+df(novo.gerado)+'.');
 }
 
+/* A mesma ideia vale para o próprio app: se o index.html mudou no servidor,
+   o aparelho limpa o cache e recarrega sozinho, para ninguém ficar em versão velha. */
+async function verificarApp(){
+  try{
+    const r = await fetch(location.pathname + '?app=' + Date.now(), {method:'HEAD', cache:'no-store'});
+    if(!r.ok) return;
+    const marca = r.headers.get('etag') || r.headers.get('last-modified');
+    if(!marca) return;
+    if(marcaApp === null){ marcaApp = marca; return; }
+    if(marca !== marcaApp){
+      appDiferente++;
+      if(appDiferente >= 2){                       // confirma antes de recarregar
+        try{ const ks = await caches.keys(); await Promise.all(ks.map(k => caches.delete(k))); }catch(e){}
+        location.reload();
+      }
+    } else appDiferente = 0;
+  }catch(e){}
+}
+
 async function verificarBase(){
   if(!/^https?:/.test(location.protocol) || checando) return;
   checando = true;
   try{
+    verificarApp();
     const marca = await marcaRemota();
     if(marca){
       if(marcaBase === null) marcaBase = marca;
@@ -1216,6 +1239,7 @@ function carimbo(){
   document.getElementById('hoje').textContent = hoje.toLocaleDateString('pt-BR',{day:'2-digit',month:'long',year:'numeric'});
   document.getElementById('base').textContent = df(DADOS.gerado);
   document.getElementById('npp').textContent = (DADOS.npp||0).toLocaleString('pt-BR');
+  document.getElementById('versao').textContent = VERSAO_APP;
 }
 function popularFiltros(){
   const uniq=(arr,f)=>[...new Set(arr.map(f))].filter(Boolean).sort();
@@ -1234,7 +1258,7 @@ function popularFiltros(){
   setTab('pc');
   ligarAtualizacao();
   if('serviceWorker' in navigator && location.protocol==='https:'){
-    navigator.serviceWorker.register('sw.js').catch(()=>{});
+    navigator.serviceWorker.register('sw.js').then(reg=>{ reg.update(); }).catch(()=>{});
   }
 })();
 </script>

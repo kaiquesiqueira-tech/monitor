@@ -1,7 +1,7 @@
 /* Service worker do monitor de compras.
    Estratégia: rede primeiro, cache como reserva — assim o app abre sem internet
    e sempre mostra a base mais recente quando há conexão. */
-const CACHE = 'monitor-compras-v2';
+const CACHE = 'monitor-compras-v3';
 const ARQUIVOS = ['./', './index.html', './dados.js', './manifest.webmanifest',
                   './icone.svg', './icone-192.png', './icone-512.png'];
 
@@ -15,6 +15,7 @@ self.addEventListener('activate', e => {
     .then(() => self.clients.claim()));
 });
 
+/* A página em si nunca vem do cache quando há rede: evita ficar preso em versão velha. */
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
   if (new URL(e.request.url).search) return;   // checagem de base nova vai direto à rede
