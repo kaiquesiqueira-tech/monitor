@@ -95,6 +95,8 @@ input[type=number]{width:72px}
 select:focus-visible,input:focus-visible,button:focus-visible,th button:focus-visible{outline:2px solid var(--go);outline-offset:1px}
 .btn{background:var(--go);color:var(--btnInk);border:none;padding:8px 14px;border-radius:2px;cursor:pointer;font-size:13.5px}
 .btn.ghost{background:none;color:var(--go);border:1px solid var(--line)}
+.btn.zap{display:inline-flex;align-items:center;justify-content:center;gap:7px}
+.btn.zap svg{width:15px;height:15px;flex:0 0 auto}
 .spacer{flex:1}
 
 /* tabela */
@@ -285,6 +287,9 @@ tbody tr{cursor:pointer}
   <div class="spacer"></div>
   <div class="f"><label>&nbsp;</label><button class="btn ghost" onclick="limpar()">Limpar filtros</button></div>
   <div class="f"><label>&nbsp;</label><button class="btn" onclick="exportar()">Baixar Excel</button></div>
+  <div class="f"><label>&nbsp;</label><button class="btn zap" onclick="compartilhar()" id="btZap">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-12.3 7.4L3 20.5l1.7-5.5A8.4 8.4 0 1 1 21 11.5z"/></svg>
+    Enviar no WhatsApp</button></div>
 </div>
 
 <div id="viewTable">
@@ -607,7 +612,8 @@ function opts(id,vals,label){
   document.getElementById(id).innerHTML=(label===null?'':'<option value="">'+label+'</option>')+
     vals.map(v=>`<option value="${esc(v[0])}">${esc(v[1])}</option>`).join('');
 }
-function exportar(){
+function planilhaAtual(){ return exportar(true); }
+function exportar(devolver){
   const rows=ordenar(filtrar(baseRows()));
   const cab = tab==='pc'
     ? ['Filial','Empresa','Pedido','Produto','Descrição','Quantidade','UM','Preço unit.','Valor total','Emissão','Entrega','Dias de atraso','Ponto de pedido','Lote econômico','Fornecedor','Comprador','SC origem','Grupo','Centro de custo']
@@ -621,6 +627,7 @@ function exportar(){
   const aba = tab==='pc'?'Pedidos de compra':'Solicitacoes de compra';
   const bytes = xlsx(aba,cab,rows.map(lin),larg);
   const blob = new Blob([bytes],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  if(devolver) return blob;
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
   a.download=(tab==='pc'?'monitor_pedidos_':'monitor_solicitacoes_')+new Date().toISOString().slice(0,10)+'.xlsx';
@@ -1039,6 +1046,92 @@ async function importar(){
   }finally{
     bt.disabled = false; bt.textContent = 'Carregar arquivos';
   }
+}
+
+/* ---------- compartilhar no WhatsApp ---------- */
+
+function textoOpcao(id){
+  const el = document.getElementById(id);
+  if(!el || !el.value) return null;
+  const o = el.options[el.selectedIndex];
+  return o ? o.text : null;
+}
+
+function resumoTexto(){
+  const rows = ordenar(filtrar(baseRows()));
+  const L = [];
+  L.push('*MONITOR PC E SC — ALMOXARIFADO*');
+  L.push('Posição de ' + hoje.toLocaleDateString('pt-BR') + ' · base de ' + df(DADOS.gerado));
+
+  const filtros = [textoOpcao('fSit'), textoOpcao('fPP'), textoOpcao('fFil'),
+                   textoOpcao('fGru'), textoOpcao('fCmp'), textoOpcao('fFor')].filter(Boolean);
+  const busca = document.getElementById('q').value.trim();
+  if(busca) filtros.push('busca: ' + busca);
+  if(sel){ const fs = faixas().find(f=>f.k===sel); if(fs) filtros.push(fs.l); }
+  if(filtros.length) L.push('_' + filtros.join(' · ') + '_');
+  L.push('');
+
+  if(!rows.length){ L.push('Nenhum item neste filtro.'); return L.join('\n'); }
+
+  const lista = [];
+  if(tab==='pc'){
+    const venc = rows.filter(r=>r.atraso>0);
+    const v = venc.reduce((s,r)=>s+r.valor,0);
+    L.push('*' + rows.length + '* itens de pedido em aberto');
+    L.push('*' + venc.length + '* com entrega vencida — ' + mf.format(v) +
+           ' em ' + new Set(venc.map(r=>r.filial+r.pedido)).size + ' pedidos');
+    faixas().forEach(f=>{
+      const n = rows.filter(r=>r.atraso>=f.min&&r.atraso<=f.max).length;
+      if(n) lista.push(n + ' ' + f.l);
+    });
+    if(lista.length) L.push(lista.join(' · '));
+    const top = venc.slice().sort((a,b)=>b.atraso-a.atraso).slice(0,8);
+    if(top.length){
+      L.push('');
+      L.push('*Mais atrasados:*');
+      top.forEach(r=>L.push('• ' + r.atraso + 'd — ' + r.desc + ' (' + nf.format(r.qtd) + ' ' + r.um +
+        ') — ped ' + r.pedido + ' ' + r.emp + ' — ' + r.forn));
+      if(venc.length>top.length) L.push('…e mais ' + (venc.length-top.length) + ' itens vencidos.');
+    }
+  } else {
+    const p30 = rows.filter(r=>r.idade>30);
+    L.push('*' + rows.length + '* itens de solicitação sem pedido');
+    L.push('*' + p30.length + '* parados há mais de 30 dias');
+    faixas().forEach(f=>{
+      const n = rows.filter(r=>r.idade>=f.min&&r.idade<=f.max).length;
+      if(n) lista.push(n + ' ' + f.l);
+    });
+    if(lista.length) L.push(lista.join(' · '));
+    const top = rows.slice().sort((a,b)=>b.idade-a.idade).slice(0,8);
+    L.push('');
+    L.push('*Paradas há mais tempo:*');
+    top.forEach(r=>L.push('• ' + r.idade + 'd — ' + r.desc + ' (' + nf.format(r.qtd) + ' ' + r.um +
+      ') — SC ' + r.sc + ' ' + r.emp));
+    if(rows.length>top.length) L.push('…e mais ' + (rows.length-top.length) + ' solicitações.');
+  }
+
+  if(/^https?:/.test(location.protocol)) L.push('\n' + location.origin + location.pathname);
+  let txt = L.join('\n');
+  if(txt.length > 1600) txt = txt.slice(0,1580) + '\n…';
+  return txt;
+}
+
+async function compartilhar(){
+  const texto = resumoTexto();
+  const bt = document.getElementById('btZap');
+  try{
+    const rows = ordenar(filtrar(baseRows()));
+    if(rows.length && navigator.canShare){
+      const arquivo = new File([planilhaAtual()],
+        (tab==='pc'?'monitor_pedidos_':'monitor_solicitacoes_')+new Date().toISOString().slice(0,10)+'.xlsx',
+        {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+      if(navigator.canShare({files:[arquivo]})){
+        await navigator.share({ files:[arquivo], text: texto, title: 'Monitor PC e SC' });
+        return;
+      }
+    }
+  }catch(e){ if(e && e.name === 'AbortError') return; }
+  window.open('https://wa.me/?text=' + encodeURIComponent(texto), '_blank', 'noopener');
 }
 
 function baixarBase(){

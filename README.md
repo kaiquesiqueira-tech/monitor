@@ -91,6 +91,16 @@ Alternativa para quem prefere linha de comando, ou para deixar automatizado:
 Os dias de atraso são recalculados toda vez que a página abre, usando a data do dia,
 então o monitor continua correto entre uma atualização e outra.
 
+## Compartilhar no WhatsApp
+
+O botão **Enviar no WhatsApp**, ao lado do Baixar Excel, monta um resumo do que estiver
+na tela: totais, faixas de atraso, os oito itens mais críticos e o endereço do monitor.
+
+No celular abre a caixa de compartilhamento do aparelho já com a planilha em anexo, então
+o Excel vai junto com o texto. No computador abre o WhatsApp Web com a mensagem pronta,
+só faltando escolher o contato ou o grupo — nesse caso o anexo não vai junto, use o
+Baixar Excel se precisar do arquivo.
+
 ## Como os itens são classificados
 
 - **Com ponto de pedido na filial** — o produto tem cadastro no SBZ da mesma filial
