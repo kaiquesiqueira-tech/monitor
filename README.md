@@ -43,54 +43,6 @@ Abra o endereço no navegador do celular e use **Adicionar à tela de início**
 em tela cheia, com ícone próprio, e continua funcionando sem internet com a última
 base que foi carregada.
 
-## Atualizando a base pela própria tela
-
-Na aba **Importar base**, escolha os arquivos exportados do Protheus e clique em
-*Carregar arquivos*. A leitura do Excel acontece dentro do navegador, nada é enviado
-para fora do aparelho. O monitor passa a mostrar a base nova na hora.
-
-Para que os outros também vejam, clique em **Baixar dados.js** e substitua o arquivo
-do repositório por esse. Enquanto isso não for feito, a base nova vale só para a sua sessão.
-
-Os arquivos de pedidos e solicitações são obrigatórios. O de ponto de pedido é opcional:
-sem ele, o monitor mantém o cadastro que já estava carregado.
-
-Requer Chrome ou Edge 103+, Firefox 113+ ou Safari 16.4+, que é onde o navegador sabe
-descompactar o .xlsx sozinho.
-
-## Sincronização automática
-
-Dê dois cliques em **sincronizar.bat** e deixe a janela aberta num canto. Ele fica de olho
-na pasta `dados`: assim que você salvar uma exportação nova do Protheus lá dentro, ele espera
-a cópia terminar, gera o `dados.js`, faz o commit e o push sem você pedir nada. Daí os
-aparelhos com o monitor aberto trocam de base sozinhos.
-
-Se a internet estiver fora na hora, ele avisa e tenta de novo na próxima mudança.
-Para parar, feche a janela.
-
-Para ele subir junto com o Windows: aperte Windows+R, digite `shell:startup`, e crie nessa
-pasta um atalho para o `sincronizar.bat`.
-
-## Publicando com um clique
-
-Depois de salvar as exportações do Protheus na pasta `dados`, dê dois cliques em
-**publicar.bat**. Ele gera o `dados.js`, faz o commit e envia para o GitHub, e avisa
-na tela se algum arquivo estiver faltando ou se não houver nada novo para enviar.
-
-Precisa de Python e Git instalados, e do repositório já conectado — o que é o caso
-se você já fez um `git push` pelo VS Code alguma vez.
-
-## Como os outros aparelhos recebem a atualização
-
-Ninguém precisa recarregar nada. Com o monitor aberto, o app pergunta ao servidor a cada
-dois minutos se o `dados.js` mudou, e também sempre que a aba volta a ficar em foco.
-Quando detecta base nova, ele baixa e troca os dados na hora, mantendo a página aberta,
-e mostra um aviso discreto no rodapé com a data da nova base.
-
-Só é feita a troca quando o arquivo realmente mudou: a checagem normal é uma pergunta
-mínima ao servidor, sem baixar a base. Sem internet, o app continua funcionando com a
-última base carregada.
-
 ## Atualizando a base pelo script
 
 Alternativa para quem prefere linha de comando, ou para deixar automatizado:
@@ -116,6 +68,8 @@ No celular abre a caixa de compartilhamento do aparelho já com a planilha em an
 o Excel vai junto com o texto. No computador abre o WhatsApp Web com a mensagem pronta,
 só faltando escolher o contato ou o grupo — nesse caso o anexo não vai junto, use o
 Baixar Excel se precisar do arquivo.
+
+A troca de base é feita só pelo computador, com o `sincronizar.bat` ou o `publicar.bat`.
 
 ## Busca
 

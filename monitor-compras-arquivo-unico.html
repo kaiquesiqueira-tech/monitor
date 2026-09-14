@@ -161,23 +161,6 @@ tbody tr:hover{background:var(--panel2)}
 .rank .nm{font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rank .vl{font-size:13.5px;font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums}
 
-/* ---------- importação ---------- */
-.imp{max-width:780px}
-.imp .impp{margin:0 0 18px;font-size:14px;color:var(--muted);max-width:66ch}
-.imp-grid{display:grid;gap:10px}
-.imp-f{display:flex;flex-direction:column;gap:6px;padding:14px 16px;border:1px solid var(--line);background:var(--panel2);border-radius:var(--r)}
-.imp-f label{font-size:14px;font-weight:500}
-.imp-f input[type=file]{font:inherit;font-size:13px;color:var(--muted)}
-.imp-f input[type=file]::file-selector-button{font:inherit;font-size:13px;margin-right:10px;padding:8px 13px;
-  border:1px solid var(--line);background:var(--panel);border-radius:var(--r);cursor:pointer;color:var(--ink)}
-.imp-acoes{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
-#impStatus{margin-top:18px;font-size:14px}
-#impAtual{font-size:13px;margin-bottom:16px}
-#impStatus .st,#impAtual.st{padding:11px 14px;background:var(--panel2);border-left:3px solid var(--s1);margin-bottom:8px;border-radius:0 var(--r) var(--r) 0}
-#impStatus .st.erro{border-left-color:var(--s4)}
-#impStatus .st.fim{border-left-color:var(--s0)}
-#impStatus ul{margin:7px 0 0;padding-left:18px;color:var(--muted)}
-
 /* ---------- ficha do produto ---------- */
 #scrim{position:fixed;inset:0;background:var(--veu);opacity:0;pointer-events:none;transition:opacity .18s;z-index:40}
 #scrim.on{opacity:1;pointer-events:auto}
@@ -304,7 +287,6 @@ tbody tr:hover{background:var(--panel2)}
   <button class="tab" role="tab" id="t-pc" aria-selected="true" onclick="setTab('pc')">Pedidos de compra <span class="c" id="c-pc"></span></button>
   <button class="tab" role="tab" id="t-sc" aria-selected="false" onclick="setTab('sc')">Solicitações de compra <span class="c" id="c-sc"></span></button>
   <button class="tab" role="tab" id="t-rs" aria-selected="false" onclick="setTab('rs')">Resumo</button>
-  <button class="tab" role="tab" id="t-im" aria-selected="false" onclick="setTab('im')">Importar base</button>
 </nav>
 
 <div class="filters" id="filters">
@@ -330,35 +312,6 @@ tbody tr:hover{background:var(--panel2)}
 <div id="viewTable">
   <div class="tablecard"><table id="tb"><thead><tr id="th"></tr></thead><tbody id="tbody"></tbody></table></div>
   <div class="foot"><span id="cnt"></span><span id="tot"></span></div>
-</div>
-
-<div id="viewImport" style="display:none">
-  <div class="card imp">
-    <h3>Trocar a base do monitor</h3>
-    <p class="impp">Exporte os browses do Protheus em Excel e carregue aqui. A leitura acontece no seu
-      aparelho: nenhum arquivo é enviado para a internet. Ao final, baixe o <b>dados.js</b> e substitua
-      o do repositório para que todo mundo veja a base nova.</p>
-    <div id="impAtual" class="st"></div>
-    <div class="imp-grid">
-      <div class="imp-f">
-        <label for="aPC">Pedidos de compra <span class="code">MATA121</span></label>
-        <input type="file" id="aPC" accept=".xlsx">
-      </div>
-      <div class="imp-f">
-        <label for="aSC">Solicitações de compra <span class="code">MATA110</span></label>
-        <input type="file" id="aSC" accept=".xlsx">
-      </div>
-      <div class="imp-f">
-        <label for="aPP">Produtos com ponto de pedido <span class="code">SBZ · opcional</span></label>
-        <input type="file" id="aPP" accept=".xlsx">
-      </div>
-    </div>
-    <div class="imp-acoes">
-      <button class="btn" id="btImp" onclick="importar()">Carregar arquivos</button>
-      <button class="btn ghost" id="btBaixar" onclick="baixarBase()" style="display:none">Baixar dados.js</button>
-    </div>
-    <div id="impStatus"></div>
-  </div>
 </div>
 
 <div id="viewResumo" style="display:none">
@@ -514,7 +467,6 @@ function contadores(){
 }
 function render(){
   contadores();
-  if(tab==='im'){ tab='pc'; renderHero(filtrar(baseRows())); tab='im'; return; }
   if(tab==='rs'){ tab='pc'; renderHero(filtrar(baseRows())); tab='rs'; renderResumo(); return; }
   const rows = filtrar(baseRows());
   renderHero(rows);
@@ -627,12 +579,10 @@ function rank(id,pairs,fmt){
 /* ---------- interação ---------- */
 function setTab(t){
   tab=t; sel=null;
-  ['pc','sc','rs','im'].forEach(x=>document.getElementById('t-'+x).setAttribute('aria-selected',x===t));
+  ['pc','sc','rs'].forEach(x=>document.getElementById('t-'+x).setAttribute('aria-selected',x===t));
   const lista = (t==='pc'||t==='sc');
   document.getElementById('viewTable').style.display = lista?'':'none';
   document.getElementById('viewResumo').style.display = t==='rs'?'':'none';
-  document.getElementById('viewImport').style.display = t==='im'?'':'none';
-  if(t==='im') baseAtual();
   document.getElementById('filters').style.display = lista?'':'none';
   document.getElementById('wCmp').style.display = t==='pc'?'':'none';
   document.getElementById('wFor').style.display = t==='pc'?'':'none';
@@ -828,264 +778,6 @@ function fechar(){
 }
 document.addEventListener('keydown',e=>{if(e.key==='Escape')fechar();});
 
-/* ---------- leitura de xlsx no navegador ---------- */
-/* Um .xlsx é um zip de XMLs. Aqui abrimos o zip com DecompressionStream,
-   que já vem no navegador, e lemos a primeira planilha. Sem biblioteca externa. */
-
-async function descompactar(bytes, metodo){
-  if(metodo===0) return bytes;
-  if(typeof DecompressionStream==='undefined')
-    throw new Error('Este navegador não consegue abrir arquivos .xlsx. Use uma versão mais recente do Chrome, Edge, Firefox ou Safari.');
-  const fluxo = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
-  return new Uint8Array(await new Response(fluxo).arrayBuffer());
-}
-
-async function abrirZip(buffer){
-  const b = new Uint8Array(buffer), dv = new DataView(buffer);
-  let fim = -1;
-  for(let i=b.length-22; i>=0 && i>b.length-65558; i--){ if(dv.getUint32(i,true)===0x06054b50){ fim=i; break; } }
-  if(fim<0) throw new Error('Arquivo não parece um .xlsx válido.');
-  const qtd = dv.getUint16(fim+10,true);
-  let p = dv.getUint32(fim+16,true);
-  const arquivos = {};
-  const td = new TextDecoder();
-  for(let i=0;i<qtd;i++){
-    const metodo = dv.getUint16(p+10,true), tam = dv.getUint32(p+20,true);
-    const nl = dv.getUint16(p+28,true), el = dv.getUint16(p+30,true), cl = dv.getUint16(p+32,true);
-    const nome = td.decode(b.subarray(p+46,p+46+nl));
-    const loc = dv.getUint32(p+42,true);
-    const nlL = dv.getUint16(loc+26,true), elL = dv.getUint16(loc+28,true);
-    const ini = loc+30+nlL+elL;
-    arquivos[nome] = { bytes: b.subarray(ini, ini+tam), metodo };
-    p += 46+nl+el+cl;
-  }
-  return {
-    async texto(nome){
-      const a = arquivos[nome];
-      if(!a) return null;
-      return new TextDecoder('utf-8').decode(await descompactar(a.bytes, a.metodo));
-    },
-    nomes: Object.keys(arquivos)
-  };
-}
-
-const SERIE = s => {                       // número de série do Excel -> 'aaaa-mm-dd'
-  const d = new Date(Date.UTC(1899,11,30) + Math.round(s)*864e5);
-  return d.toISOString().slice(0,10);
-};
-const COLNUM = ref => {                    // 'BC12' -> 54
-  let n=0; for(const c of ref){ if(c<'A') break; n = n*26 + (c.charCodeAt(0)-64); } return n-1;
-};
-
-async function lerPlanilha(file){
-  const zip = await abrirZip(await file.arrayBuffer());
-  const dp = new DOMParser();
-
-  const textos = [];
-  const ss = await zip.texto('xl/sharedStrings.xml');
-  if(ss) dp.parseFromString(ss,'application/xml').querySelectorAll('si').forEach(si=>{
-    let t=''; si.querySelectorAll('t').forEach(x=>t+=x.textContent); textos.push(t);
-  });
-
-  const estiloData = new Set();
-  const st = await zip.texto('xl/styles.xml');
-  if(st){
-    const doc = dp.parseFromString(st,'application/xml');
-    const custom = {};
-    doc.querySelectorAll('numFmt').forEach(f=>custom[f.getAttribute('numFmtId')] = f.getAttribute('formatCode')||'');
-    const padrao = id => (id>=14&&id<=22)||(id>=45&&id<=47);
-    [...doc.querySelectorAll('cellXfs > xf')].forEach((xf,i)=>{
-      const id = +(xf.getAttribute('numFmtId')||0);
-      const cod = custom[id]||'';
-      if(padrao(id) || /[dy]/.test(cod.replace(/\[[^\]]*\]/g,'')) ) estiloData.add(i);
-    });
-  }
-
-  const alvo = zip.nomes.find(n=>/^xl\/worksheets\/sheet1\.xml$/.test(n))
-            || zip.nomes.find(n=>/^xl\/worksheets\/.*\.xml$/.test(n));
-  if(!alvo) throw new Error('Não encontrei nenhuma planilha dentro do arquivo.');
-  const doc = dp.parseFromString(await zip.texto(alvo),'application/xml');
-
-  const linhas = [];
-  doc.querySelectorAll('sheetData > row').forEach(row=>{
-    const saida = [];
-    row.querySelectorAll('c').forEach(c=>{
-      const ref = c.getAttribute('r')||'', tipo = c.getAttribute('t'), s = +(c.getAttribute('s')||0);
-      const v = c.querySelector('v'), is = c.querySelector('is');
-      let valor = null;
-      if(tipo==='s' && v) valor = textos[+v.textContent] ?? '';
-      else if(tipo==='inlineStr' && is) valor = is.textContent;
-      else if(tipo==='str' && v) valor = v.textContent;
-      else if(tipo==='b' && v) valor = v.textContent==='1';
-      else if(v){
-        const n = Number(v.textContent);
-        valor = (estiloData.has(s) && n>1) ? SERIE(n) : n;
-      }
-      saida[COLNUM(ref)] = valor;
-    });
-    linhas.push(saida);
-  });
-  return linhas;
-}
-
-/* ---------- conversão para o formato do monitor ---------- */
-
-function cabecalho(linhas, obrigatorias, nome){
-  for(let i=0;i<Math.min(linhas.length,12);i++){
-    const l = (linhas[i]||[]).map(v=>String(v??'').trim());
-    if(l.includes('Filial')){
-      const cols = {}; l.forEach((c,j)=>{ if(c) cols[c]=j; });
-      const faltam = obrigatorias.filter(c=>!(c in cols));
-      if(faltam.length) throw new Error(`No arquivo de ${nome} faltam as colunas: ${faltam.join(', ')}. Exporte o browse completo do Protheus.`);
-      return { cols, dados: linhas.slice(i+1).filter(l=>l && l.some(v=>v!==null&&v!=='')) };
-    }
-  }
-  throw new Error(`Não achei a linha de cabeçalho no arquivo de ${nome}. Confira se é o browse certo.`);
-}
-
-const zf  = (v,n) => v===null||v===undefined||v==='' ? '' : String(v).trim().padStart(n,'0');
-const nz  = v => { const n = Number(String(v??'').replace(',','.')); return isFinite(n)?n:0; };
-const dtx = v => typeof v==='number' ? SERIE(v) : (/^\d{4}-\d{2}-\d{2}/.test(String(v||'')) ? String(v).slice(0,10) : '');
-function filialDe(txt){
-  const s = String(txt||''), i = s.indexOf('-');
-  if(i<0) return [s.trim(), s.trim()];
-  const resto = s.slice(i+1);
-  let empresa = resto.split(' - ')[0].trim();
-  if(/BARRO ALTO 2/i.test(resto)) empresa += ' 2';
-  return [s.slice(0,i).trim(), empresa];
-}
-
-const OBRIG = {
-  pc: ['Filial','Numero','Data Emissao','Fornecedor','Produto','Descricao','Prc Unitario','Quantidade','Unidade','Dt. Entrega','Comprador'],
-  sc: ['Filial','Numero da SC','Item da SC','Produto','Descricao','Quantidade','Unid Medida','DT Emissao'],
-  pp: ['Filial','Ponto Pedido','Codigo']
-};
-
-function converter(linhasPC, linhasSC, linhasPP){
-  const tPC = cabecalho(linhasPC, OBRIG.pc, 'pedidos');
-  const tSC = cabecalho(linhasSC, OBRIG.sc, 'solicitações');
-
-  const usados = new Set();
-  const codPC = tPC.cols['Produto'], codSC = tSC.cols['Produto'];
-  tPC.dados.forEach(l=>usados.add(zf(l[codPC],9)));
-  tSC.dados.forEach(l=>usados.add(zf(l[codSC],9)));
-
-  let parm = DADOS.parm, npp = DADOS.npp;
-  if(linhasPP){
-    const tPP = cabecalho(linhasPP, OBRIG.pp, 'ponto de pedido');
-    const c = tPP.cols, g = (l,nome) => nome in c ? l[c[nome]] : 0;
-    parm = {}; npp = tPP.dados.filter(l=>String(l[c['Codigo']]??'').trim()!=='').length;
-    tPP.dados.forEach(l=>{
-      const cod = zf(l[c['Codigo']],9);
-      if(!cod || !usados.has(cod)) return;
-      const fil = zf(l[c['Filial']],6), chave = fil+'|'+cod;
-      const v = [nz(g(l,'Ponto Pedido')), nz(g(l,'Lote Econom.')), nz(g(l,'Estoq Maximo')),
-                 nz(g(l,'Seguranca')), nz(g(l,'Qtd.Embalag.')), nz(g(l,'Ult. Preco')),
-                 dtx(g(l,'Ult. Compra')), dtx(g(l,'Cons.Inicial')), dtx(g(l,'Data Incl.')),
-                 String(g(l,'Armazem Pad.')||'').trim().padStart(2,'0')];
-      if(!(chave in parm) || v[0]>parm[chave][0]) parm[chave]=v;
-    });
-  }
-
-  const porCodigo = {};
-  Object.entries(parm).forEach(([k,v])=>{
-    const cod = k.split('|')[1];
-    if(!(cod in porCodigo) || v[0]>porCodigo[cod][0]) porCodigo[cod]=v;
-  });
-  const vazio = [0,0,0,0,0,0,'','','',''];
-  const situacao = (fil,cod) => (fil+'|'+cod) in parm ? [2,parm[fil+'|'+cod]]
-                              : (cod in porCodigo ? [1,porCodigo[cod]] : [0,vazio]);
-
-  const c1 = tPC.cols;
-  const pedidos = tPC.dados.map(l=>{
-    const [fil,emp] = filialDe(l[c1['Filial']]), cod = zf(l[codPC],9);
-    const [pp,p] = situacao(fil,cod);
-    return [fil, emp, zf(l[c1['Numero']],6), cod, String(l[c1['Descricao']]||'').trim(),
-      nz(l[c1['Quantidade']]), String(l[c1['Unidade']]||'').trim(), nz(l[c1['Prc Unitario']]),
-      dtx(l[c1['Data Emissao']]), dtx(l[c1['Dt. Entrega']]), String(l[c1['Fornecedor']]||'').trim(),
-      String(l[c1['Comprador']]||'').trim(), zf(l[c1['Numero da SC']],6), cod.slice(0,4),
-      'Centro Custo' in c1 ? zf(l[c1['Centro Custo']],0) : '', pp, p[0], p[1]];
-  }).filter(r=>r[9]);
-
-  const c2 = tSC.cols;
-  const solicitacoes = tSC.dados.map(l=>{
-    const [fil,emp] = filialDe(l[c2['Filial']]), cod = zf(l[codSC],9);
-    const [pp,p] = situacao(fil,cod);
-    return [fil, emp, zf(l[c2['Numero da SC']],6), zf(l[c2['Item da SC']],4), cod,
-      String(l[c2['Descricao']]||'').trim(), nz(l[c2['Quantidade']]),
-      String(l[c2['Unid Medida']]||'').trim(), dtx(l[c2['DT Emissao']]), cod.slice(0,4),
-      'Centro Custo' in c2 ? zf(l[c2['Centro Custo']],0) : '', pp, p[0], p[1]];
-  }).filter(r=>r[8]);
-
-  if(!pedidos.length && !solicitacoes.length) throw new Error('Os arquivos foram lidos, mas não vieram linhas com data válida.');
-
-  return { pc_cols: DADOS.pc_cols, sc_cols: DADOS.sc_cols, parm_cols: DADOS.parm_cols,
-           pc: pedidos, sc: solicitacoes, parm, npp,
-           gerado: new Date().toISOString().slice(0,10) };
-}
-
-/* ---------- ações da aba ---------- */
-
-function aviso(texto, classe){
-  const d = document.createElement('div');
-  d.className = 'st '+(classe||'');
-  d.innerHTML = texto;
-  document.getElementById('impStatus').appendChild(d);
-}
-const respira = () => new Promise(r=>setTimeout(r,30));
-
-function baseAtual(){
-  const el = document.getElementById('impAtual');
-  if(!el) return;
-  el.innerHTML = `Base carregada agora: <b>${df(DADOS.gerado)}</b> — ${DADOS.pc.length.toLocaleString('pt-BR')} linhas de pedido, `+
-    `${DADOS.sc.length.toLocaleString('pt-BR')} de solicitação e ${Object.keys(DADOS.parm).length.toLocaleString('pt-BR')} itens com ponto de pedido. `+
-    `Carregar arquivos novos substitui tudo isso: o que não vier na exportação nova some da tela.`;
-}
-
-async function importar(){
-  const alvo = document.getElementById('impStatus');
-  alvo.innerHTML = '';
-  document.getElementById('btBaixar').style.display = 'none';
-  const fPC = document.getElementById('aPC').files[0];
-  const fSC = document.getElementById('aSC').files[0];
-  const fPP = document.getElementById('aPP').files[0];
-  if(!fPC || !fSC){ aviso('Selecione os dois arquivos obrigatórios: pedidos e solicitações.','erro'); return; }
-
-  const bt = document.getElementById('btImp');
-  bt.disabled = true; bt.textContent = 'Lendo…';
-  try{
-    aviso('Lendo pedidos de compra…'); await respira();
-    const lPC = await lerPlanilha(fPC);
-    aviso('Lendo solicitações de compra…'); await respira();
-    const lSC = await lerPlanilha(fSC);
-    let lPP = null;
-    if(fPP){ aviso('Lendo produtos com ponto de pedido…'); await respira(); lPP = await lerPlanilha(fPP); }
-    else aviso('Sem arquivo de ponto de pedido: mantendo o cadastro que já estava carregado.');
-
-    const novo = converter(lPC, lSC, lPP);
-    const anterior = DADOS.gerado;
-    DADOS = novo; window.DADOS = novo;
-    montar(); carimbo(); popularFiltros();
-
-    const atras = PC.filter(r=>r.atraso>0 && r.pp===2).length;
-    const parad = SC.filter(r=>r.idade>30 && r.pp===2).length;
-    alvo.innerHTML = '';
-    aviso(`<b>Base atualizada.</b><ul>
-      <li>${novo.pc.length.toLocaleString('pt-BR')} linhas de pedido, ${atras} vencidas em itens com ponto de pedido</li>
-      <li>${novo.sc.length.toLocaleString('pt-BR')} linhas de solicitação, ${parad} paradas há mais de 30 dias</li>
-      <li>${Object.keys(novo.parm).length.toLocaleString('pt-BR')} itens com ponto de pedido cruzados</li></ul>
-      A base de ${df(anterior)} foi substituída por completo. Baixe o dados.js e substitua o do repositório
-      para publicar esta base — o nome do arquivo é o mesmo, então ele sobrescreve o antigo.`,'fim');
-    baseAtual();
-    document.getElementById('btBaixar').style.display = '';
-    render();
-  }catch(e){
-    aviso('<b>Não deu para carregar.</b> '+esc(e.message||e),'erro');
-  }finally{
-    bt.disabled = false; bt.textContent = 'Carregar arquivos';
-  }
-}
-
 /* ---------- compartilhar no WhatsApp ---------- */
 
 function textoOpcao(id){
@@ -1165,13 +857,6 @@ async function compartilhar(){
   window.open('https://wa.me/?text=' + encodeURIComponent(texto), '_blank', 'noopener');
 }
 
-function baixarBase(){
-  const blob = new Blob(['window.DADOS='+JSON.stringify(DADOS)+';\n'],{type:'text/javascript'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob); a.download = 'dados.js'; a.click();
-  setTimeout(()=>URL.revokeObjectURL(a.href),1500);
-}
-
 /* ---------- base sempre atual ---------- */
 /* A cada poucos minutos o app pergunta ao servidor se o dados.js mudou.
    Se mudou, ele baixa a base nova e troca na tela, sem recarregar a página. */
@@ -1201,7 +886,6 @@ async function trocarPelaBaseNova(){
   if(!novo || !Array.isArray(novo.pc)) throw new Error('base inválida');
   DADOS = novo; window.DADOS = novo;
   montar(); carimbo(); popularFiltros(); render();
-  if(document.getElementById('impAtual') && tab==='im') baseAtual();
   mostrarAviso('Base atualizada para '+df(novo.gerado)+'.');
 }
 
