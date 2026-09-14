@@ -1073,44 +1073,37 @@ function resumoTexto(){
 
   if(!rows.length){ L.push('Nenhum item neste filtro.'); return L.join('\n'); }
 
-  const lista = [];
   if(tab==='pc'){
     const venc = rows.filter(r=>r.atraso>0);
     const v = venc.reduce((s,r)=>s+r.valor,0);
     L.push('*' + rows.length + '* itens de pedido em aberto');
     L.push('*' + venc.length + '* com entrega vencida — ' + mf.format(v) +
            ' em ' + new Set(venc.map(r=>r.filial+r.pedido)).size + ' pedidos');
-    faixas().forEach(f=>{
-      const n = rows.filter(r=>r.atraso>=f.min&&r.atraso<=f.max).length;
-      if(n) lista.push(n + ' ' + f.l);
-    });
-    if(lista.length) L.push(lista.join(' · '));
-    const top = venc.slice().sort((a,b)=>b.atraso-a.atraso).slice(0,8);
+    const base = venc.length ? venc : rows;
+    const top = base.slice().sort((a,b)=>b.atraso-a.atraso).slice(0,12);
     if(top.length){
       L.push('');
-      L.push('*Mais atrasados:*');
-      top.forEach(r=>L.push('• ' + r.atraso + 'd — ' + r.desc + ' (' + nf.format(r.qtd) + ' ' + r.um +
-        ') — ped ' + r.pedido + ' ' + r.emp + ' — ' + r.forn));
-      if(venc.length>top.length) L.push('…e mais ' + (venc.length-top.length) + ' itens vencidos.');
+      L.push(venc.length ? '*Mais atrasados:*' : '*Itens em aberto:*');
+      top.forEach(r=>{
+        L.push('• Pedido ' + r.pedido + ' — ' + r.produto + ' — emissão ' + df(r.emissao));
+        L.push('  ' + r.desc);
+      });
+      if(base.length>top.length) L.push('…e mais ' + (base.length-top.length) + ' itens.');
     }
   } else {
     const p30 = rows.filter(r=>r.idade>30);
     L.push('*' + rows.length + '* itens de solicitação sem pedido');
     L.push('*' + p30.length + '* parados há mais de 30 dias');
-    faixas().forEach(f=>{
-      const n = rows.filter(r=>r.idade>=f.min&&r.idade<=f.max).length;
-      if(n) lista.push(n + ' ' + f.l);
-    });
-    if(lista.length) L.push(lista.join(' · '));
-    const top = rows.slice().sort((a,b)=>b.idade-a.idade).slice(0,8);
+    const top = rows.slice().sort((a,b)=>b.idade-a.idade).slice(0,12);
     L.push('');
     L.push('*Paradas há mais tempo:*');
-    top.forEach(r=>L.push('• ' + r.idade + 'd — ' + r.desc + ' (' + nf.format(r.qtd) + ' ' + r.um +
-      ') — SC ' + r.sc + ' ' + r.emp));
+    top.forEach(r=>{
+      L.push('• Solicitação ' + r.sc + ' — ' + r.produto + ' — emissão ' + df(r.emissao));
+      L.push('  ' + r.desc);
+    });
     if(rows.length>top.length) L.push('…e mais ' + (rows.length-top.length) + ' solicitações.');
   }
 
-  if(/^https?:/.test(location.protocol)) L.push('\n' + location.origin + location.pathname);
   let txt = L.join('\n');
   if(txt.length > 1600) txt = txt.slice(0,1580) + '\n…';
   return txt;

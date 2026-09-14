@@ -94,7 +94,8 @@ então o monitor continua correto entre uma atualização e outra.
 ## Compartilhar no WhatsApp
 
 O botão **Enviar no WhatsApp**, ao lado do Baixar Excel, monta um resumo do que estiver
-na tela: totais, faixas de atraso, os oito itens mais críticos e o endereço do monitor.
+na tela: os totais e a lista dos doze itens mais críticos, cada um com número do pedido
+ou da solicitação, código do produto, data de emissão e descrição.
 
 No celular abre a caixa de compartilhamento do aparelho já com a planilha em anexo, então
 o Excel vai junto com o texto. No computador abre o WhatsApp Web com a mensagem pronta,
