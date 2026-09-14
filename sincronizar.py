@@ -88,14 +88,25 @@ def main():
 
     print()
     print("  == MONITOR PC E SC ALMOXARIFADO ==")
-    print("  Vigiando a pasta 'dados'. Salve as exportações novas do Protheus lá dentro")
+    print("  Vigiando a pasta abaixo. Salve as exportacoes novas do Protheus la dentro")
     print("  e eu publico sozinho. Deixe esta janela aberta. Ctrl+C para parar.")
+    print()
+    print("  PASTA VIGIADA:")
+    print("  " + str(ENTRADA.resolve()))
     print()
 
     anterior = impressao_digital()
     if not anterior:
-        log("A pasta dados está vazia. Salve as exportações do Protheus lá.")
+        log("Nao achei nenhum dos tres arquivos nessa pasta.")
+        presentes = [a.name for a in sorted(ENTRADA.iterdir())] if ENTRADA.exists() else []
+        if presentes:
+            log("O que existe la dentro: " + ", ".join(presentes))
+        else:
+            log("A pasta esta vazia.")
+        log("Se os seus arquivos estao em outra pasta 'monitor', rode o sincronizar.bat que fica la.")
     else:
+        for nome, tamanho, _ in anterior:
+            log(f"Encontrado: {nome} ({tamanho//1024} KB)")
         log("Vigiando. Base atual registrada.")
 
     pendente = None

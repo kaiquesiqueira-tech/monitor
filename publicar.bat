@@ -1,54 +1,58 @@
 @echo off
-chcp 65001 >nul
-cd /d "%~dp0"
-title Publicar base do monitor
+setlocal
+pushd "%~dp0"
 
 echo.
 echo  == MONITOR PC E SC ALMOXARIFADO ==
-echo  Gerando a base a partir dos arquivos da pasta dados e publicando no GitHub.
+echo  Pasta: %CD%
 echo.
 
-if not exist "dados\mata121.xlsx" goto faltando
-if not exist "dados\mata110.xlsx" goto faltando
+set FALTA=0
+if not exist "dados\mata121.xlsx" (echo  [x] falta dados\mata121.xlsx & set FALTA=1) else (echo  [ok] dados\mata121.xlsx)
+if not exist "dados\mata110.xlsx" (echo  [x] falta dados\mata110.xlsx & set FALTA=1) else (echo  [ok] dados\mata110.xlsx)
+if not exist "dados\PROD_EM_PP.xlsx" (echo  [x] falta dados\PROD_EM_PP.xlsx & set FALTA=1) else (echo  [ok] dados\PROD_EM_PP.xlsx)
+if "%FALTA%"=="1" goto faltando
 
+echo.
+echo  Gerando a base...
 python gerar_dados.py
 if errorlevel 1 goto erro
 
 echo.
+echo  Enviando para o GitHub...
 git add -A
-git diff --cached --quiet && goto semmudanca
+git diff --cached --quiet
+if not errorlevel 1 goto semmudanca
 
-for /f "tokens=1-3 delims=/ " %%a in ("%date%") do set HOJE=%%a/%%b/%%c
-git commit -m "atualiza base %HOJE%"
+git commit -m "atualiza base"
 if errorlevel 1 goto erro
-
 git push
 if errorlevel 1 goto erropush
 
 echo.
-echo  Pronto. Em cerca de um minuto os aparelhos que estiverem com o monitor
-echo  aberto trocam para a base nova sozinhos.
+echo  Publicado. Os aparelhos com o monitor aberto trocam de base em poucos minutos.
 goto fim
 
 :faltando
-echo  Nao encontrei os arquivos do Protheus.
-echo  Salve as exportacoes na pasta "dados" com estes nomes:
-echo     dados\mata121.xlsx      pedidos de compra
-echo     dados\mata110.xlsx      solicitacoes de compra
-echo     dados\PROD_EM_PP.xlsx   ponto de pedido (opcional)
+echo.
+echo  Salve as exportacoes do Protheus na pasta "dados" com os nomes marcados acima.
 goto fim
 
 :semmudanca
+echo.
 echo  A base gerada e igual a que ja esta publicada. Nada a enviar.
 goto fim
 
 :erropush
+echo.
 echo  O envio falhou. Verifique a conexao e se voce esta logado no GitHub.
 goto fim
 
 :erro
+echo.
 echo  Algo deu errado no passo acima. Leia a mensagem e tente de novo.
 
 :fim
 echo.
+popd
 pause
