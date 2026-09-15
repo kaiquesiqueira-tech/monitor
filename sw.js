@@ -1,8 +1,8 @@
 /* Service worker do monitor de compras.
    Estratégia: rede primeiro, cache como reserva — assim o app abre sem internet
    e sempre mostra a base mais recente quando há conexão. */
-const CACHE = 'monitor-compras-v3';
-const ARQUIVOS = ['./', './index.html', './dados.js', './manifest.webmanifest',
+const CACHE = 'monitor-compras-v4';
+const ARQUIVOS = ['./', './index.html', './dados.js', './historico.js', './manifest.webmanifest',
                   './icone.svg', './icone-192.png', './icone-512.png'];
 
 self.addEventListener('install', e => {

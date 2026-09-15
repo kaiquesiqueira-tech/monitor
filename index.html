@@ -170,6 +170,14 @@ tbody tr:last-child td{border-bottom:none}
 .legf i{width:9px;height:9px;display:inline-block;border-radius:1px}
 .legf i.p{background:var(--s3)}
 .legf i.s{background:var(--s2);margin-left:10px}
+.legf i+i{margin-left:12px}
+.card h3 .cnt{font-family:"Barlow Condensed","IBM Plex Sans",sans-serif;font-size:19px;color:var(--muted);margin-left:5px}
+.rlista{list-style:none;margin:0;padding:0}
+.rlista li{padding:9px 0;border-bottom:1px solid var(--line2);display:flex;flex-direction:column;gap:2px}
+.rlista li:last-child{border-bottom:none}
+.rlista li[tabindex]{cursor:pointer}
+.rlista li[tabindex]:hover .rdesc{color:var(--go)}
+.rdesc{font-size:13.5px;font-weight:500;line-height:1.3}
 .subcard{margin:0 0 14px;font-size:12.5px;color:var(--muted)}
 .gr{width:100%;height:auto;display:block;overflow:visible}
 .gr .barra{transition:opacity .15s}
@@ -325,12 +333,14 @@ tbody tr:last-child td{border-bottom:none}
 <nav class="tabs" role="tablist">
   <button class="tab" role="tab" id="t-pc" aria-selected="true" onclick="setTab('pc')">Pedidos de compra <span class="c" id="c-pc"></span></button>
   <button class="tab" role="tab" id="t-sc" aria-selected="false" onclick="setTab('sc')">Solicitações de compra <span class="c" id="c-sc"></span></button>
+  <button class="tab" role="tab" id="t-rp" aria-selected="false" onclick="setTab('rp')">Reposição <span class="c" id="c-rp"></span></button>
+  <button class="tab" role="tab" id="t-rv" aria-selected="false" onclick="setTab('rv')">Revisão <span class="c" id="c-rv"></span></button>
   <button class="tab" role="tab" id="t-rs" aria-selected="false" onclick="setTab('rs')">Resumo</button>
 </nav>
 
 <div class="filters" id="filters">
   <div class="f"><label for="q">Buscar</label><input type="search" id="q" placeholder="produto, descrição, pedido, SC, data de emissão…"></div>
-  <div class="f"><label for="fPP">Itens</label><select id="fPP">
+  <div class="f" id="wPP"><label for="fPP">Itens</label><select id="fPP">
       <option value="2">Com ponto de pedido na filial</option>
       <option value="1">Com ponto de pedido em qualquer filial</option>
       <option value="0">Todos os itens</option>
@@ -353,6 +363,11 @@ tbody tr:last-child td{border-bottom:none}
   <div class="foot"><span id="cnt"></span><span id="tot"></span></div>
 </div>
 
+<div id="viewRevisao" style="display:none">
+  <p class="subcard" style="margin-bottom:16px">Situações que merecem uma conferida antes de virar compra dobrada ou item parado no sistema.</p>
+  <div class="grid2" id="revisao"></div>
+</div>
+
 <div id="viewResumo" style="display:none">
   <div class="grid2">
     <div class="card"><h3>Fornecedores com mais valor vencido</h3><div class="rank" id="rForn"></div></div>
@@ -362,6 +377,8 @@ tbody tr:last-child td{border-bottom:none}
     <div class="card"><h3>Pedidos com mais itens vencidos</h3><div class="rank" id="rPed"></div></div>
     <div class="card"><h3>Itens mais recorrentes na fila</h3><div class="rank" id="rProd"></div></div>
   </div>
+  <h2 class="secao">Como está evoluindo</h2>
+  <div id="tendencia"></div>
   <h2 class="secao">Emissões por mês, filial a filial</h2>
   <div class="graficos" id="graficosFiliais"></div>
 </div>
@@ -404,6 +421,7 @@ tbody tr:last-child td{border-bottom:none}
   });
 })();
 </script>
+<script src="historico.js" onerror="window.HISTORICO=[]"></script>
 <script src="dados.js"></script>
 <script>
 let DADOS = window.DADOS;
@@ -429,30 +447,48 @@ const FX = {
       {k:'b',l:'vencido 31 a 90 dias',min:31,max:90,c:'var(--s2)'},
       {k:'c',l:'vencido 91 a 180 dias',min:91,max:180,c:'var(--s3)'},
       {k:'d',l:'vencido há mais de 180 dias',min:181,max:1e9,c:'var(--s4)'}],
+  rp:[{k:'a',l:'já tem pedido em aberto',min:0,max:0,c:'var(--s0)'},
+      {k:'b',l:'só com solicitação',min:1,max:1,c:'var(--s2)'},
+      {k:'c',l:'sem pedido nem solicitação',min:2,max:2,c:'var(--s3)'},
+      {k:'d',l:'sem cobertura e sem saldo',min:3,max:3,c:'var(--s4)'}],
   sc:[{k:'a',l:'até 30 dias',min:-1e9,max:30,c:'var(--s1)'},
       {k:'b',l:'31 a 90 dias',min:31,max:90,c:'var(--s2)'},
       {k:'c',l:'91 a 180 dias',min:91,max:180,c:'var(--s3)'},
       {k:'d',l:'mais de 180 dias',min:181,max:1e9,c:'var(--s4)'}]
 };
-const faixas = () => FX[tab==='sc'?'sc':'pc'];
+const faixas = () => FX[tab==='sc'||tab==='rp' ? tab : 'pc'];
+/* valor que define a faixa de cada linha, conforme a aba */
+const vf = r => tab==='pc' ? r.atraso : (tab==='sc' ? r.idade : r.risco);
 const faixa = d => faixas().find(f=>d>=f.min&&d<=f.max) || faixas()[0];
 
 /* opções do seletor Situação, por aba */
 const SIT = {
   pc:[['-999999','Todos os pedidos'],['1','Só os vencidos'],['31','Vencidos há mais de 30 dias'],['91','Vencidos há mais de 90 dias']],
-  sc:[['-999999','Todas as solicitações'],['31','Paradas há mais de 30 dias'],['61','Paradas há mais de 60 dias'],['91','Paradas há mais de 90 dias']]
+  sc:[['-999999','Todas as solicitações'],['31','Paradas há mais de 30 dias'],['61','Paradas há mais de 60 dias'],['91','Paradas há mais de 90 dias']],
+  rp:[['0','Todos abaixo do ponto de pedido'],['1','Sem pedido em aberto'],['2','Sem pedido nem solicitação'],['3','Sem cobertura e sem saldo']]
 };
 
 function obj(cols,row){const o={};cols.forEach((c,i)=>o[c]=row[i]);return o;}
-let PC=[], SC=[];
+let PC=[], SC=[], REP=[];
 function montar(){
   PC = DADOS.pc.map((r,i)=>{const o=obj(DADOS.pc_cols,r);o.i=i;o.atraso=dias(o.entrega);o.valor=o.qtd*o.preco;o.idade=dias(o.emissao);return o;});
   SC = DADOS.sc.map((r,i)=>{const o=obj(DADOS.sc_cols,r);o.i=i;o.idade=dias(o.emissao);return o;});
+  REP = (DADOS.rep||[]).map((r,i)=>{
+    const o = obj(DADOS.rep_cols, r); o.i = i;
+    const mesmos = x => x.filial===o.filial && x.produto===o.produto;
+    o.emPedido = PC.filter(mesmos).reduce((s,x)=>s+x.qtd,0);
+    o.emSC = SC.filter(mesmos).reduce((s,x)=>s+x.qtd,0);
+    o.falta = Math.max(o.pp - o.saldo, 0);
+    o.grupo = o.produto.slice(0,4);
+    /* risco: 0 já tem pedido, 1 só solicitação, 2 sem cobertura, 3 sem cobertura e sem saldo */
+    o.risco = o.emPedido > 0 ? 0 : (o.emSC > 0 ? 1 : (o.saldo > 0 ? 2 : 3));
+    return o;
+  });
 }
 montar();
 
 /* ---------- estado ---------- */
-let tab='pc', sel=null, sort={pc:{k:'atraso',dir:-1},sc:{k:'idade',dir:-1}};
+let tab='pc', sel=null, sort={pc:{k:'atraso',dir:-1},sc:{k:'idade',dir:-1},rp:{k:'risco',dir:-1}};
 
 const COLS={
  pc:[{k:'emp',l:'Filial'},{k:'pedido',l:'Pedido'},{k:'produto',l:'Produto',main:1},
@@ -460,13 +496,18 @@ const COLS={
      {k:'atraso',l:'Atraso',num:1},{k:'ppq',l:'Ponto ped.',num:1},{k:'forn',l:'Fornecedor'},{k:'comprador',l:'Comprador'},{k:'sc',l:'SC'}],
  sc:[{k:'emp',l:'Filial'},{k:'sc',l:'Solicitação'},{k:'produto',l:'Produto',main:1},
      {k:'qtd',l:'Qtd',num:1},{k:'emissao',l:'Emissão'},{k:'idade',l:'Parada há',num:1},
-     {k:'ppq',l:'Ponto ped.',num:1},{k:'cc',l:'C. custo'},{k:'grupo',l:'Grupo'}]
+     {k:'ppq',l:'Ponto ped.',num:1},{k:'cc',l:'C. custo'},{k:'grupo',l:'Grupo'}],
+ rp:[{k:'emp',l:'Filial'},{k:'produto',l:'Produto',main:1},{k:'saldo',l:'Saldo',num:1},
+     {k:'pp',l:'Ponto de pedido',num:1},{k:'falta',l:'Falta',num:1},
+     {k:'emPedido',l:'Em pedido',num:1},{k:'emSC',l:'Em solicitação',num:1},
+     {k:'risco',l:'Situação'}]
 };
 
 function escopo(){ return +document.getElementById('fPP').value; }
 function nopp(r){ return r.pp >= escopo(); }
 function baseRows(){
   const min = +document.getElementById('fSit').value;
+  if(tab==='rp') return REP.filter(r=>r.risco>=min);
   return tab==='pc' ? PC.filter(r=>r.atraso>=min&&nopp(r))
                     : SC.filter(r=>r.idade>=min&&nopp(r));
 }
@@ -477,13 +518,12 @@ function filtrar(rows){
   const fFil=document.getElementById('fFil').value, fGru=document.getElementById('fGru').value,
         fCmp=document.getElementById('fCmp').value, fFor=document.getElementById('fFor').value;
   return rows.filter(r=>{
-    const d = tab==='pc'?r.atraso:r.idade;
-    if(sel && faixa(d).k!==sel) return false;
+    if(sel && faixa(vf(r)).k!==sel) return false;
     if(fFil && r.filial!==fFil) return false;
     if(fGru && r.grupo!==fGru) return false;
     if(tab==='pc'){ if(fCmp && r.comprador!==fCmp) return false; if(fFor && r.forn!==fFor) return false; }
     if(q){
-      const datas = df(r.emissao)+' '+r.emissao.replace(/-/g,'/')+' '+df(r.emissao).slice(3);
+      const datas = r.emissao ? df(r.emissao)+' '+r.emissao.replace(/-/g,'/')+' '+df(r.emissao).slice(3) : '';
       const hay = soData((r.produto+' '+r.desc+' '+(r.pedido||'')+' '+(r.sc||'')+' '+
                   (r.forn||'')+' '+(r.comprador||'')+' '+datas).toLowerCase());
       if(!hay.includes(q)) return false;
@@ -504,9 +544,12 @@ function ordenar(rows){
 function contadores(){
   document.getElementById('c-pc').textContent = PC.filter(nopp).length.toLocaleString('pt-BR');
   document.getElementById('c-sc').textContent = SC.filter(nopp).length.toLocaleString('pt-BR');
+  document.getElementById('c-rp').textContent = REP.length.toLocaleString('pt-BR');
+  document.getElementById('c-rv').textContent = (revisoes().reduce((s,b)=>s+b.linhas.length,0)).toLocaleString('pt-BR');
 }
 function render(){
   contadores();
+  if(tab==='rv'){ tab='pc'; renderHero(filtrar(baseRows())); tab='rv'; renderRevisao(); return; }
   if(tab==='rs'){ tab='pc'; renderHero(filtrar(baseRows())); tab='rs'; renderResumo(); return; }
   const rows = filtrar(baseRows());
   renderHero(rows);
@@ -521,7 +564,10 @@ function render(){
   }
   document.getElementById('cnt').textContent =
     rows.length.toLocaleString('pt-BR')+' itens listados'+(rows.length>2500?' (a tela mostra os 2.500 primeiros — filtre mais ou baixe o Excel)':'');
-  if(tab==='pc'){
+  if(tab==='rp'){
+    document.getElementById('tot').textContent =
+      'Falta comprar: ' + nf.format(rows.reduce((s,r)=>s+r.falta,0)) + ' unidades no total';
+  } else if(tab==='pc'){
     const venc = rows.filter(r=>r.atraso>0);
     document.getElementById('tot').textContent =
       'Valor em aberto: '+mf.format(rows.reduce((s,r)=>s+r.valor,0))+
@@ -532,11 +578,16 @@ function render(){
 }
 
 function linha(r,cols){
-  const d = tab==='pc'?r.atraso:r.idade, f=faixa(d);
+  const d = vf(r), f=faixa(d);
   const cel = c=>{
     let v=r[c.k], t='';
     if(c.k==='produto') t=`<div class="desc">${esc(r.desc)}</div><div class="code">${r.produto} · grupo ${r.grupo}</div>`;
     else if(c.k==='qtd') t=nf.format(r.qtd)+' <span class="code">'+esc(r.um)+'</span>';
+    else if(c.k==='saldo') t=`<span class="dias" style="color:${r.saldo>0?'var(--ink)':'var(--s4)'}">${nf.format(r.saldo)}</span>`;
+    else if(c.k==='pp'||c.k==='falta') t=nf.format(r[c.k]);
+    else if(c.k==='emPedido'||c.k==='emSC') t=r[c.k]?nf.format(r[c.k]):'<span class="code">—</span>';
+    else if(c.k==='risco') t=`<span class="dias" style="color:${f.c}">${f.l}</span>`;
+    else if(c.k==='forn') t=esc(r.fornnome||r.forn);
     else if(c.k==='valor') t=mf.format(r.valor);
     else if(c.k==='entrega'||c.k==='emissao') t=df(v);
     else if(c.k==='atraso') t = d>0 ? `<span class="dias" style="color:${f.c}">${d} d</span>`
@@ -553,7 +604,13 @@ function linha(r,cols){
 
 function renderHero(rows){
   document.getElementById('heroN').textContent = rows.length.toLocaleString('pt-BR');
-  if(tab==='sc'){
+  if(tab==='rp'){
+    document.getElementById('heroCap').textContent = 'itens abaixo do ponto de pedido';
+    const sem = rows.filter(r=>r.risco>=2).length, zero = rows.filter(r=>r.risco===3).length;
+    document.getElementById('heroV').innerHTML = sem
+      ? `<b>${sem}</b> sem pedido nem solicitação, sendo ${zero} com saldo zerado.`
+      : 'Todos já têm reposição em andamento.';
+  } else if(tab==='sc'){
     document.getElementById('heroCap').textContent = 'itens de solicitação sem pedido gerado';
     const p30 = rows.filter(r=>r.idade>30).length, p90 = rows.filter(r=>r.idade>90).length;
     document.getElementById('heroV').innerHTML = p30
@@ -570,12 +627,149 @@ function renderHero(rows){
   // faixas calculadas sobre a base sem o filtro de faixa
   const all = filtrarSemFaixa();
   document.getElementById('strip').innerHTML = faixas().map(f=>{
-    const n = all.filter(r=>{const d=tab==='pc'?r.atraso:r.idade;return d>=f.min&&d<=f.max;}).length;
+    const n = all.filter(r=>{const d=vf(r);return d>=f.min&&d<=f.max;}).length;
     return `<button class="seg ${n?'':'z'}" style="background:${f.c};flex:${n} 1 0" aria-pressed="${sel===f.k}"
       onclick="toggleFaixa('${f.k}')"><span class="n">${n}</span><span class="l">${f.l}</span></button>`;
   }).join('');
 }
 function filtrarSemFaixa(){const s=sel;sel=null;const r=filtrar(baseRows());sel=s;return r;}
+
+/* ---------- revisão: o que merece uma conferida ---------- */
+function revisoes(){
+  if(revisoes.cache) return revisoes.cache;
+  const pc = PC.filter(nopp), sc = SC.filter(nopp);
+  const blocos = [];
+
+  /* mais de uma solicitação aberta do mesmo item na mesma filial */
+  const porItem = {};
+  sc.forEach(r => { const k = r.filial + r.produto; (porItem[k] = porItem[k] || []).push(r); });
+  const duplas = Object.values(porItem).filter(v => v.length > 1);
+  blocos.push({
+    id:'dup', titulo:'Solicitações repetidas do mesmo item',
+    texto:'Mesma filial, mesmo produto, mais de uma solicitação em aberto. Costuma virar compra dobrada.',
+    linhas: duplas.map(v => ({
+      t:'sc', i:v[0].i, emp:v[0].emp, desc:v[0].desc, produto:v[0].produto,
+      nota: v.length + ' solicitações: ' + v.map(x=>x.sc).join(', ')
+    }))
+  });
+
+  /* solicitação de item que já tem pedido em aberto */
+  const comPedido = new Set(pc.map(r => r.filial + r.produto));
+  blocos.push({
+    id:'sccomped', titulo:'Solicitação de item que já tem pedido',
+    texto:'O pedido já está colocado. Antes de gerar outro, vale confirmar se a solicitação continua necessária.',
+    linhas: sc.filter(r => comPedido.has(r.filial + r.produto)).map(r => ({
+      t:'sc', i:r.i, emp:r.emp, desc:r.desc, produto:r.produto,
+      nota:'SC ' + r.sc + ' parada há ' + r.idade + ' dias'
+    }))
+  });
+
+  /* pedidos antigos demais para ainda serem reais */
+  blocos.push({
+    id:'fantasma', titulo:'Pedidos vencidos há mais de 180 dias',
+    texto:'Entrega vencida há muito tempo. Normalmente é resíduo que ficou aberto no sistema e precisa ser encerrado.',
+    linhas: pc.filter(r => r.atraso > 180).sort((a,b)=>b.atraso-a.atraso).map(r => ({
+      t:'pc', i:r.i, emp:r.emp, desc:r.desc, produto:r.produto,
+      nota:'Pedido ' + r.pedido + ' vencido há ' + r.atraso + ' dias'
+    }))
+  });
+
+  /* compras de item sem ponto de pedido cadastrado na filial */
+  const semPP = PC.filter(r => r.pp !== 2).concat(SC.filter(r => r.pp !== 2));
+  const porFilial = {};
+  semPP.forEach(r => { porFilial[r.emp] = (porFilial[r.emp] || 0) + 1; });
+  blocos.push({
+    id:'sempp', titulo:'Itens comprados sem ponto de pedido na filial',
+    texto:'Ficam fora do monitor de reposição. Se são de estoque, falta cadastro no SBZ daquela filial.',
+    linhas: Object.entries(porFilial).sort((a,b)=>b[1]-a[1]).map(([emp,n]) => ({
+      emp: emp, desc: n.toLocaleString('pt-BR') + ' linhas de pedido ou solicitação', nota:'sem cadastro'
+    }))
+  });
+
+  /* mesmo código com descrições diferentes */
+  const descs = {};
+  PC.concat(SC).forEach(r => { (descs[r.produto] = descs[r.produto] || new Set()).add(r.desc); });
+  blocos.push({
+    id:'desc', titulo:'Mesmo código com descrições diferentes',
+    texto:'O código é um só, mas cada documento descreve de um jeito. Atrapalha busca, histórico e conferência.',
+    linhas: Object.entries(descs).filter(([k,v]) => v.size > 1).map(([k,v]) => ({
+      produto:k, desc:[...v][0], nota:[...v].slice(1).join(' / ')
+    }))
+  });
+
+  /* ponto de pedido sem lote econômico */
+  const semLote = [];
+  Object.entries(DADOS.parm).forEach(([chave, v]) => {
+    if(v[0] > 0 && !v[1]) semLote.push({ produto: chave.split('|')[1], filial: chave.split('|')[0] });
+  });
+  blocos.push({
+    id:'semlote', titulo:'Ponto de pedido sem lote econômico',
+    texto:'Sabe-se quando comprar, mas não quanto. Sem o lote, cada reposição vira decisão manual.',
+    linhas: semLote.map(x => {
+      const ref = PC.concat(SC).find(r => r.produto === x.produto && r.filial === x.filial);
+      return { produto:x.produto, emp: ref ? ref.emp : x.filial,
+               desc: ref ? ref.desc : 'Item sem movimento em aberto', nota:'lote zerado' };
+    })
+  });
+
+  revisoes.cache = blocos.filter(b => b.linhas.length);
+  return revisoes.cache;
+}
+
+function renderRevisao(){
+  const caixa = document.getElementById('revisao');
+  caixa.innerHTML = revisoes().map(b => {
+    const mostra = b.linhas.slice(0, 8);
+    const linhas = mostra.map(l => {
+      const clicavel = l.t !== undefined;
+      return `<li ${clicavel ? `tabindex="0" onclick="abrir('${l.t}',${l.i})" onkeydown="if(event.key==='Enter')abrir('${l.t}',${l.i})"` : ''}>
+        <span class="rdesc">${esc(l.desc)}</span>
+        <span class="code">${l.emp ? esc(l.emp) + (l.produto ? ' · ' : '') : ''}${l.produto ? esc(l.produto) : ''} — ${esc(l.nota)}</span></li>`;
+    }).join('');
+    return `<div class="card"><h3>${esc(b.titulo)} <span class="cnt">${b.linhas.length}</span></h3>
+      <p class="subcard">${esc(b.texto)}</p>
+      <ul class="rlista">${linhas}</ul>
+      ${b.linhas.length > 8 ? `<p class="subcard" style="margin:10px 0 0">e mais ${b.linhas.length - 8}.</p>` : ''}</div>`;
+  }).join('') || '<div class="card"><h3>Nada a revisar</h3><p class="subcard">Nenhuma inconsistência encontrada nesta base.</p></div>';
+}
+
+/* ---------- tendência dia a dia ---------- */
+function renderTendencia(){
+  const caixa = document.getElementById('tendencia');
+  const h = (window.HISTORICO || []).slice(-40);
+  if(h.length < 2){
+    caixa.innerHTML = `<div class="card"><p class="subcard" style="margin:0">A cada publicação o monitor guarda um retrato do dia.
+      Com dois ou mais dias, aparece aqui a curva de pedidos vencidos, solicitações paradas e itens abaixo do ponto de pedido.
+      Hoje há ${h.length} retrato.</p></div>`;
+    return;
+  }
+  const L = 760, A = 210, base = A - 30, topo = 16, esq = 4;
+  const series = [
+    { k:'vencidos', l:'pedidos vencidos', c:'var(--s3)' },
+    { k:'paradas30', l:'solicitações paradas há +30 dias', c:'var(--s2)' },
+    { k:'abaixo_pp', l:'abaixo do ponto de pedido', c:'var(--s1)' }
+  ];
+  const max = Math.max(1, ...h.flatMap(r => series.map(s => r[s.k] || 0)));
+  const px = i => esq + i * ((L - esq) / Math.max(h.length - 1, 1));
+  const py = v => base - (v / max) * (base - topo);
+
+  let svg = `<svg class="gr" viewBox="0 0 ${L} ${A}" preserveAspectRatio="none" role="img" aria-label="Evolução dia a dia">`;
+  [0.5, 1].forEach(f => { const y = base - f * (base - topo);
+    svg += `<line x1="0" y1="${y.toFixed(1)}" x2="${L}" y2="${y.toFixed(1)}" stroke="var(--line2)" stroke-dasharray="3 4"/>`; });
+  svg += `<line x1="0" y1="${base}" x2="${L}" y2="${base}" stroke="var(--line)"/>`;
+  series.forEach(s => {
+    const pts = h.map((r,i) => `${px(i).toFixed(1)},${py(r[s.k]||0).toFixed(1)}`).join(' ');
+    svg += `<polyline points="${pts}" fill="none" stroke="${s.c}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+    h.forEach((r,i) => { svg += `<circle cx="${px(i).toFixed(1)}" cy="${py(r[s.k]||0).toFixed(1)}" r="3" fill="${s.c}"><title>${df(r.data)}: ${r[s.k]||0} ${s.l}</title></circle>`; });
+  });
+  h.forEach((r,i) => { if(h.length <= 12 || i % Math.ceil(h.length/10) === 0)
+    svg += `<text x="${px(i).toFixed(1)}" y="${base+17}" text-anchor="middle" font-size="11" fill="var(--muted)">${df(r.data).slice(0,5)}</text>`; });
+  svg += '</svg>';
+
+  caixa.innerHTML = `<div class="card larga">
+    <p class="legf">${series.map(s=>`<i style="background:${s.c}"></i>${s.l}`).join('')}</p>
+    ${svg}</div>`;
+}
 
 /* Barras por mês de emissão, uma carta por filial. SVG puro: segue o tema e funciona sem rede. */
 const MES = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
@@ -638,6 +832,7 @@ function graficosPorFilial(){
 function renderResumo(){
   const pc = PC.filter(r=>r.atraso>0&&nopp(r)), sc = SC.filter(r=>r.idade>30&&nopp(r));
 
+  renderTendencia();
   graficosPorFilial();
   rank('rForn', agg(pc,'forn',r=>r.valor), mf.format);
   rank('rComp', agg(pc,'comprador',()=>1), v=>v+' itens');
@@ -679,13 +874,15 @@ function rank(id,pairs,fmt){
 /* ---------- interação ---------- */
 function setTab(t){
   tab=t; sel=null;
-  ['pc','sc','rs'].forEach(x=>document.getElementById('t-'+x).setAttribute('aria-selected',x===t));
-  const lista = (t==='pc'||t==='sc');
+  ['pc','sc','rp','rv','rs'].forEach(x=>document.getElementById('t-'+x).setAttribute('aria-selected',x===t));
+  const lista = (t==='pc'||t==='sc'||t==='rp');
   document.getElementById('viewTable').style.display = lista?'':'none';
   document.getElementById('viewResumo').style.display = t==='rs'?'':'none';
+  document.getElementById('viewRevisao').style.display = t==='rv'?'':'none';
   document.getElementById('filters').style.display = lista?'':'none';
   document.getElementById('wCmp').style.display = t==='pc'?'':'none';
   document.getElementById('wFor').style.display = t==='pc'?'':'none';
+  document.getElementById('wPP').style.display = t==='rp'?'none':'';
   if(lista) opts('fSit', SIT[t], null);
   render();
 }
@@ -703,22 +900,28 @@ function opts(id,vals,label){
 function planilhaAtual(){ return exportar(true); }
 function exportar(devolver){
   const rows=ordenar(filtrar(baseRows()));
-  const cab = tab==='pc'
-    ? ['Filial','Empresa','Pedido','Produto','Descrição','Quantidade','UM','Preço unit.','Valor total','Emissão','Entrega','Dias de atraso','Ponto de pedido','Lote econômico','Fornecedor','Comprador','SC origem','Grupo','Centro de custo']
-    : ['Filial','Empresa','Solicitação','Item','Produto','Descrição','Quantidade','UM','Emissão','Dias parada','Ponto de pedido','Lote econômico','Grupo','Centro de custo'];
-  const larg = tab==='pc'
-    ? [9,11,10,12,46,11,6,12,13,11,11,13,14,14,13,18,11,8,14]
-    : [9,11,12,7,12,46,11,6,11,11,14,14,8,14];
-  const lin = r => tab==='pc'
-    ? [r.filial,r.emp,r.pedido,r.produto,r.desc,r.qtd,r.um,r.preco,Number(r.valor.toFixed(2)),r.emissao,r.entrega,r.atraso,r.ppq,r.lote,r.forn,r.comprador,r.sc,r.grupo,r.cc]
-    : [r.filial,r.emp,r.sc,r.item,r.produto,r.desc,r.qtd,r.um,r.emissao,r.idade,r.ppq,r.lote,r.grupo,r.cc];
-  const aba = tab==='pc'?'Pedidos de compra':'Solicitacoes de compra';
+  const MODELO = {
+    pc:{ aba:'Pedidos de compra',
+      cab:['Filial','Empresa','Pedido','Produto','Descrição','Quantidade','UM','Preço unit.','Valor total','Emissão','Entrega','Dias de atraso','Ponto de pedido','Lote econômico','Fornecedor','Comprador','SC origem','Grupo','Centro de custo'],
+      larg:[9,11,10,12,46,11,6,12,13,11,11,13,14,14,22,18,11,8,14],
+      lin:r=>[r.filial,r.emp,r.pedido,r.produto,r.desc,r.qtd,r.um,r.preco,Number(r.valor.toFixed(2)),r.emissao,r.entrega,r.atraso,r.ppq,r.lote,r.fornnome||r.forn,r.comprador,r.sc,r.grupo,r.cc] },
+    sc:{ aba:'Solicitacoes de compra',
+      cab:['Filial','Empresa','Solicitação','Item','Produto','Descrição','Quantidade','UM','Emissão','Dias parada','Ponto de pedido','Lote econômico','Grupo','Centro de custo'],
+      larg:[9,11,12,7,12,46,11,6,11,11,14,14,8,14],
+      lin:r=>[r.filial,r.emp,r.sc,r.item,r.produto,r.desc,r.qtd,r.um,r.emissao,r.idade,r.ppq,r.lote,r.grupo,r.cc] },
+    rp:{ aba:'Reposicao',
+      cab:['Filial','Empresa','Produto','Descrição','Saldo atual','Ponto de pedido','Falta','Em pedido','Em solicitação','Lote econômico','Situação','Grupo'],
+      larg:[9,11,12,46,12,15,11,11,14,15,26,8],
+      lin:r=>[r.filial,r.emp,r.produto,r.desc,r.saldo,r.pp,r.falta,r.emPedido,r.emSC,r.lote,faixa(r.risco).l,r.grupo] }
+  };
+  const M = MODELO[tab] || MODELO.pc;
+  const cab = M.cab, larg = M.larg, lin = M.lin, aba = M.aba;
   const bytes = xlsx(aba,cab,rows.map(lin),larg);
   const blob = new Blob([bytes],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
   if(devolver) return blob;
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
-  a.download=(tab==='pc'?'monitor_pedidos_':'monitor_solicitacoes_')+new Date().toISOString().slice(0,10)+'.xlsx';
+  a.download='monitor_'+(tab==='pc'?'pedidos_':tab==='sc'?'solicitacoes_':'reposicao_')+new Date().toISOString().slice(0,10)+'.xlsx';
   a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1500);
 }
 
@@ -912,6 +1115,14 @@ function resumoTexto(){
       });
       if(base.length>top.length) L.push('…e mais ' + (base.length-top.length) + ' itens.');
     }
+  } else if(tab==='rp'){
+    const top = rows.slice().sort((a,b)=>b.risco-a.risco || b.falta-a.falta).slice(0,12);
+    L.push('*Itens abaixo do ponto de pedido:*');
+    top.forEach(r=>{
+      L.push('• ' + r.produto + ' — saldo ' + nf.format(r.saldo) + ' de ' + nf.format(r.pp) + ' — ' + faixa(r.risco).l);
+      L.push('  ' + r.desc);
+    });
+    if(rows.length>top.length) L.push('…e mais ' + (rows.length-top.length) + ' itens.');
   } else {
     const top = rows.slice().sort((a,b)=>b.idade-a.idade).slice(0,12);
     L.push('*Informações da solicitação:*');
@@ -989,7 +1200,7 @@ async function compartilhar(){
 /* A cada poucos minutos o app pergunta ao servidor se o dados.js mudou.
    Se mudou, ele baixa a base nova e troca na tela, sem recarregar a página. */
 const INTERVALO_BASE = 2*60*1000;
-const VERSAO_APP = 'app 14/09/2026';
+const VERSAO_APP = 'app 15/09/2026';
 let marcaBase = null, checando = false;
 let marcaApp = null, appDiferente = 0;
 

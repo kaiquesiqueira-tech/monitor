@@ -31,6 +31,7 @@ if errorlevel 1 goto erropush
 
 echo.
 echo  Publicado. Os aparelhos com o monitor aberto trocam de base em poucos minutos.
+echo  O texto do dia para o WhatsApp esta em resumo_do_dia.txt.
 goto fim
 
 :faltando
