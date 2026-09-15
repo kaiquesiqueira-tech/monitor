@@ -151,7 +151,14 @@ tbody tr:hover{background:var(--panel2)}
 .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:16px;margin-top:4px}
 .card{background:var(--panel);border:1px solid var(--line);padding:18px 20px;box-shadow:var(--sombra)}
 .card h3{margin:0 0 4px;font-size:15px;font-weight:600}
-.card.larga{grid-column:1/-1}
+.secao{font-size:15px;font-weight:600;margin:26px 0 12px}
+.graficos{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+.graficos .card{padding:15px 16px}
+.graficos h3{margin:0 0 2px}
+.legf{display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--muted);margin:0 0 10px}
+.legf i{width:9px;height:9px;display:inline-block;border-radius:1px}
+.legf i.p{background:var(--s3)}
+.legf i.s{background:var(--s2);margin-left:10px}
 .subcard{margin:0 0 14px;font-size:12.5px;color:var(--muted)}
 .gr{width:100%;height:auto;display:block;overflow:visible}
 .gr .barra{transition:opacity .15s}
@@ -324,16 +331,6 @@ tbody tr:hover{background:var(--panel2)}
 
 <div id="viewResumo" style="display:none">
   <div class="grid2">
-    <div class="card larga">
-      <h3>Pedidos em aberto por mês de emissão</h3>
-      <p class="subcard" id="gPCsub"></p>
-      <div id="gPC"></div>
-    </div>
-    <div class="card larga">
-      <h3>Solicitações em aberto por mês de emissão</h3>
-      <p class="subcard" id="gSCsub"></p>
-      <div id="gSC"></div>
-    </div>
     <div class="card"><h3>Fornecedores com mais valor vencido</h3><div class="rank" id="rForn"></div></div>
     <div class="card"><h3>Compradores por itens vencidos</h3><div class="rank" id="rComp"></div></div>
     <div class="card"><h3>Pedidos e solicitações em atraso por filial</h3><div class="leg"><span class="lp"></span>pedidos<span class="ls"></span>solicitações</div><div class="rank" id="rFil"></div></div>
@@ -341,6 +338,8 @@ tbody tr:hover{background:var(--panel2)}
     <div class="card"><h3>Pedidos com mais itens vencidos</h3><div class="rank" id="rPed"></div></div>
     <div class="card"><h3>Itens mais recorrentes na fila</h3><div class="rank" id="rProd"></div></div>
   </div>
+  <h2 class="secao">Emissões por mês, filial a filial</h2>
+  <div class="graficos" id="graficosFiliais"></div>
 </div>
 </div>
 
@@ -555,50 +554,63 @@ function renderHero(rows){
 }
 function filtrarSemFaixa(){const s=sel;sel=null;const r=filtrar(baseRows());sel=s;return r;}
 
-/* Barras por mês de emissão, desenhadas em SVG: sem biblioteca, acompanha o tema. */
+/* Barras por mês de emissão, uma carta por filial. SVG puro: segue o tema e funciona sem rede. */
 const MES = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
-function grafico(alvo, linhas, cor, palavra){
-  const caixa = document.getElementById(alvo);
-  if(!caixa) return 0;
-  const cont = new Map();
-  linhas.forEach(r => { const k = r.emissao.slice(0,7); cont.set(k, (cont.get(k)||0) + 1); });
-  const dados = [...cont].sort((a,b) => a[0] < b[0] ? -1 : 1).slice(-18);
-  if(!dados.length){ caixa.innerHTML = '<p class="subcard">Nada em aberto neste recorte.</p>'; return 0; }
 
-  const L = 600, A = 190, base = A - 34, topo = 20;
-  const n = dados.length, passo = L / n, larg = Math.min(passo - 6, 46);
-  const max = Math.max(...dados.map(d => d[1]));
-  const inclinar = n > 9;
+function porMes(linhas){
+  const m = new Map();
+  linhas.forEach(r => { const k = r.emissao.slice(0,7); m.set(k, (m.get(k)||0) + 1); });
+  return m;
+}
 
-  let svg = `<svg class="gr" viewBox="0 -4 ${L} ${A}" preserveAspectRatio="none" role="img" aria-label="Barras por mês">`;
-  svg += `<line x1="0" y1="${base}" x2="${L}" y2="${base}" stroke="var(--line)" stroke-width="1"/>`;
-  dados.forEach(([mes, qtd], i) => {
-    const alt = Math.max((qtd / max) * (base - topo), 2);
-    const x = i * passo + (passo - larg) / 2, y = base - alt;
-    const [ano, m] = mes.split('-');
+function cartaFilial(nome, pedidos, solicitacoes){
+  const mp = porMes(pedidos), ms = porMes(solicitacoes);
+  const meses = [...new Set([...mp.keys(), ...ms.keys()])].sort().slice(-8);
+  if(!meses.length) return '';
+
+  const L = 360, A = 128, base = A - 26, topo = 14;
+  const passo = L / meses.length;
+  const larg = Math.min((passo - 8) / 2, 15);
+  const max = Math.max(1, ...meses.map(k => Math.max(mp.get(k)||0, ms.get(k)||0)));
+
+  let svg = `<svg class="gr" viewBox="0 0 ${L} ${A}" preserveAspectRatio="none" role="img" aria-label="Emissões por mês em ${nome}">`;
+  svg += `<line x1="0" y1="${base}" x2="${L}" y2="${base}" stroke="var(--line)"/>`;
+  meses.forEach((k, i) => {
+    const [ano, m] = k.split('-');
     const rotulo = MES[+m - 1] + '/' + ano.slice(2);
-    svg += `<rect class="barra" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${larg.toFixed(1)}" height="${alt.toFixed(1)}" fill="${cor}" rx="2">`;
-    svg += `<title>${rotulo}: ${qtd} ${palavra}</title></rect>`;
-    svg += `<text x="${(x + larg/2).toFixed(1)}" y="${(y - 6).toFixed(1)}" text-anchor="middle" font-size="12" font-weight="600" fill="var(--ink)">${qtd}</text>`;
-    svg += inclinar
-      ? `<text x="${(x + larg/2).toFixed(1)}" y="${base + 14}" font-size="12" fill="var(--muted)" text-anchor="end" transform="rotate(-38 ${(x + larg/2).toFixed(1)} ${base + 14})">${rotulo}</text>`
-      : `<text x="${(x + larg/2).toFixed(1)}" y="${base + 16}" font-size="12" fill="var(--muted)" text-anchor="middle">${rotulo}</text>`;
+    const centro = i * passo + passo / 2;
+    [[mp.get(k)||0, 'var(--s3)', -larg - 1, 'pedidos'], [ms.get(k)||0, 'var(--s2)', 1, 'solicitações']].forEach(([qtd, cor, desloc, palavra]) => {
+      if(!qtd) return;
+      const alt = Math.max((qtd / max) * (base - topo), 2);
+      const x = centro + desloc, y = base - alt;
+      svg += `<rect class="barra" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${larg.toFixed(1)}" height="${alt.toFixed(1)}" fill="${cor}" rx="1.5">`;
+      svg += `<title>${rotulo}: ${qtd} ${palavra}</title></rect>`;
+      svg += `<text x="${(x + larg/2).toFixed(1)}" y="${(y - 4).toFixed(1)}" text-anchor="middle" font-size="10" fill="var(--muted)">${qtd}</text>`;
+    });
+    svg += `<text x="${centro.toFixed(1)}" y="${base + 14}" text-anchor="middle" font-size="10.5" fill="var(--muted)">${rotulo}</text>`;
   });
   svg += '</svg>';
-  caixa.innerHTML = svg;
-  return dados.length;
+
+  return `<div class="card"><h3>${esc(nome)}</h3>
+    <p class="legf"><i class="p"></i>${pedidos.length} itens de pedido<i class="s"></i>${solicitacoes.length} de solicitação</p>
+    ${svg}</div>`;
+}
+
+function graficosPorFilial(){
+  const caixa = document.getElementById('graficosFiliais');
+  if(!caixa) return;
+  const pc = PC.filter(nopp), sc = SC.filter(nopp);
+  const filiais = [...new Set([...pc, ...sc].map(r => r.emp))]
+    .sort((a, b) => pc.filter(r => r.emp === b).length - pc.filter(r => r.emp === a).length);
+  const cartas = filiais.map(f =>
+    cartaFilial(f, pc.filter(r => r.emp === f), sc.filter(r => r.emp === f))).filter(Boolean);
+  caixa.innerHTML = cartas.join('') || '<p class="subcard">Nada em aberto neste recorte.</p>';
 }
 
 function renderResumo(){
   const pc = PC.filter(r=>r.atraso>0&&nopp(r)), sc = SC.filter(r=>r.idade>30&&nopp(r));
 
-  const pcTudo = PC.filter(nopp), scTudo = SC.filter(nopp);
-  const mesesPC = grafico('gPC', pcTudo, 'var(--s3)', 'itens');
-  const mesesSC = grafico('gSC', scTudo, 'var(--s2)', 'itens');
-  document.getElementById('gPCsub').textContent =
-    pcTudo.length.toLocaleString('pt-BR') + ' itens de pedido em aberto, distribuídos em ' + mesesPC + ' meses de emissão';
-  document.getElementById('gSCsub').textContent =
-    scTudo.length.toLocaleString('pt-BR') + ' itens de solicitação sem pedido, distribuídos em ' + mesesSC + ' meses de emissão';
+  graficosPorFilial();
   rank('rForn', agg(pc,'forn',r=>r.valor), mf.format);
   rank('rComp', agg(pc,'comprador',()=>1), v=>v+' itens');
   rank2('rFil', agg2(pc,sc,'emp'));
