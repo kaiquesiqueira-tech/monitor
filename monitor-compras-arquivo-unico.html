@@ -214,6 +214,7 @@ tbody tr:last-child td{border-bottom:none}
 .dhead h2{margin:0;font-size:19px;font-weight:600;line-height:1.25}
 .dhead .code{display:block;margin-top:6px}
 .dhead h2{letter-spacing:-.01em}
+.dvoltar{margin:2px 0 0;font-size:22px}
 .dclose{margin-left:auto;background:none;border:1px solid var(--line);border-radius:var(--r);
   width:32px;height:32px;cursor:pointer;font-size:18px;line-height:1;flex:0 0 auto}
 .dclose:hover{border-color:var(--muted)}
@@ -234,6 +235,11 @@ tbody tr:last-child td{border-bottom:none}
 .dt td{padding:8px 8px 8px 0;border-bottom:1px solid var(--line2);vertical-align:top}
 .dt td.num,.dt th.num{text-align:right;font-variant-numeric:tabular-nums}
 .dt tr.other td{color:var(--muted)}
+.dt tbody tr{cursor:pointer;transition:background .12s}
+.dt tbody tr:hover td{background:var(--panel2)}
+.dt tbody tr.atual{cursor:default}
+.dt tbody tr.atual td{background:var(--panel2);box-shadow:inset 3px 0 0 var(--go)}
+.dt tbody tr.atual td:first-child{padding-left:9px}
 .tagf{font-size:11px;border:1px solid var(--line);padding:0 5px;margin-left:6px;color:var(--muted);border-radius:2px}
 
 /* ---------- aviso de base nova ---------- */
@@ -397,6 +403,7 @@ tbody tr:last-child td{border-bottom:none}
 <div id="scrim" onclick="fechar()"></div>
 <aside id="drawer" role="dialog" aria-modal="true" aria-labelledby="dTitulo" tabindex="-1">
   <div class="dhead">
+    <button class="dclose dvoltar" id="dVoltar" onclick="voltarFicha()" aria-label="Voltar para a ficha anterior" style="display:none">‹</button>
     <div><h2 id="dTitulo"></h2><span class="code" id="dSub"></span></div>
     <button class="dclose" onclick="fechar()" aria-label="Fechar detalhe">×</button>
   </div>
@@ -697,15 +704,28 @@ function revisoes(){
     }))
   });
 
-  /* mesmo código com descrições diferentes */
-  const descs = {};
-  PC.concat(SC).forEach(r => { (descs[r.produto] = descs[r.produto] || new Set()).add(r.desc); });
+  /* mesma descrição em códigos diferentes: provável cadastro em duplicidade */
+  const semAcento = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+                          .toUpperCase().replace(/[^A-Z0-9]+/g,' ').trim();
+  const porDesc = {};
+  PC.concat(SC).concat(REP).forEach(r => {
+    const k = semAcento(r.desc);
+    if(!k) return;
+    (porDesc[k] = porDesc[k] || new Map()).set(r.produto, r);
+  });
   blocos.push({
-    id:'desc', titulo:'Mesmo código com descrições diferentes',
-    texto:'O código é um só, mas cada documento descreve de um jeito. Atrapalha busca, histórico e conferência.',
-    linhas: Object.entries(descs).filter(([k,v]) => v.size > 1).map(([k,v]) => ({
-      produto:k, desc:[...v][0], nota:[...v].slice(1).join(' / ')
-    }))
+    id:'descdup', titulo:'Mesma descrição em códigos diferentes',
+    texto:'O mesmo item aparece cadastrado com mais de um código. Isso divide o estoque, divide o ponto de pedido e faz comprar em dobro.',
+    linhas: Object.values(porDesc).filter(v => v.size > 1).map(v => {
+      const itens = [...v.values()], codigos = [...v.keys()];
+      const ref = itens.find(x => x.pedido !== undefined)
+               || itens.find(x => x.sc !== undefined) || itens[0];
+      return {
+        t: ref.pedido !== undefined ? 'pc' : (ref.sc !== undefined ? 'sc' : undefined),
+        i: ref.i, emp: ref.emp, desc: ref.desc, n: codigos.length,
+        nota: codigos.length + ' códigos: ' + codigos.join(', ')
+      };
+    }).sort((a,b) => b.n - a.n)
   });
 
   /* ponto de pedido sem lote econômico */
@@ -1011,12 +1031,15 @@ function xlsx(nomeAba,head,rows,larguras){
 }
 
 /* ---------- detalhe do produto ---------- */
-let ultimoFoco=null, fichaAtual=null;
+let ultimoFoco=null, fichaAtual=null, pilhaFicha=[];
 const pf = new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',minimumFractionDigits:2});
 
-function abrir(t,i){
+function abrir(t,i,voltando){
   const r = t==='pc'?PC[i]:SC[i];
-  ultimoFoco=document.activeElement; fichaAtual={t:t,i:i};
+  const aberta = document.getElementById('drawer').classList.contains('on');
+  if(aberta && fichaAtual && !voltando && !(fichaAtual.t===t && fichaAtual.i===i)) pilhaFicha.push(fichaAtual);
+  if(!aberta) { ultimoFoco=document.activeElement; pilhaFicha=[]; }
+  fichaAtual={t:t,i:i};
   const cod=r.produto, fl=r.filial, emp=r.emp;
   const peds=PC.filter(x=>x.produto===cod), sols=SC.filter(x=>x.produto===cod);
   const pAqui=DADOS.parm[fl+'|'+cod]||null;
@@ -1024,6 +1047,8 @@ function abrir(t,i){
   const P=pAqui||(outra?DADOS.parm[outra]:null);
   const pc_= DADOS.parm_cols, g=(k)=>P?P[pc_.indexOf(k)]:0;
 
+  const btVoltar = document.getElementById('dVoltar');
+  btVoltar.style.display = pilhaFicha.length ? '' : 'none';
   document.getElementById('dTitulo').textContent=r.desc;
   document.getElementById('dSub').textContent=`${cod} · grupo ${r.grupo} · ${r.um} · ${emp} (${fl})`;
 
@@ -1071,9 +1096,11 @@ function abrir(t,i){
   /* pedidos */
   if(peds.length){
     const ord=peds.slice().sort((a,b)=>(a.filial===fl?-1:1)-(b.filial===fl?-1:1)||b.atraso-a.atraso);
-    s+='<div class="dsec"><h3>Pedidos em aberto deste item</h3><table class="dt"><thead><tr>'+
+    s+='<div class="dsec"><h3>Pedidos em aberto deste item — clique para abrir</h3><table class="dt"><thead><tr>'+
        '<th>Pedido</th><th>Fornecedor</th><th class="num">Qtd</th><th class="num">Preço</th><th>Entrega</th><th class="num">Atraso</th></tr></thead><tbody>'+
-       ord.map(x=>{const f=faixa(Math.max(x.atraso,1));return `<tr class="${x.filial===fl?'':'other'}">
+       ord.map(x=>{const f=faixa(Math.max(x.atraso,1));const aqui=(x.filial===fl&&x.i===(fichaAtual.t==='pc'?fichaAtual.i:-1));
+        return `<tr class="${x.filial===fl?'':'other'}${aqui?' atual':''}" tabindex="0"
+        onclick="abrir('pc',${x.i})" onkeydown="if(event.key==='Enter'){event.preventDefault();abrir('pc',${x.i})}">
         <td>${x.pedido}${x.filial===fl?'':'<span class="tagf">'+esc(x.emp)+'</span>'}<div class="code">${esc(x.comprador)}</div></td>
         <td>${esc(x.forn)}</td><td class="num">${nf.format(x.qtd)}</td><td class="num">${pf.format(x.preco)}</td>
         <td>${df(x.entrega)}</td><td class="num">${x.atraso>0?`<b style="color:${f.c}">${x.atraso} d</b>`:'<span class="code">no prazo</span>'}</td></tr>`}).join('')+
@@ -1088,9 +1115,11 @@ function abrir(t,i){
   /* solicitações */
   if(sols.length){
     const ord=sols.slice().sort((a,b)=>(a.filial===fl?-1:1)-(b.filial===fl?-1:1)||b.idade-a.idade);
-    s+='<div class="dsec"><h3>Solicitações sem pedido deste item</h3><table class="dt"><thead><tr>'+
+    s+='<div class="dsec"><h3>Solicitações sem pedido deste item — clique para abrir</h3><table class="dt"><thead><tr>'+
        '<th>Solicitação</th><th class="num">Qtd</th><th>Emissão</th><th class="num">Parada há</th><th>C. custo</th></tr></thead><tbody>'+
-       ord.map(x=>{const f=faixa(Math.max(x.idade,1));return `<tr class="${x.filial===fl?'':'other'}">
+       ord.map(x=>{const f=faixa(Math.max(x.idade,1));const aqui=(x.filial===fl&&x.i===(fichaAtual.t==='sc'?fichaAtual.i:-1));
+        return `<tr class="${x.filial===fl?'':'other'}${aqui?' atual':''}" tabindex="0"
+        onclick="abrir('sc',${x.i})" onkeydown="if(event.key==='Enter'){event.preventDefault();abrir('sc',${x.i})}">
         <td>${x.sc} <span class="code">item ${x.item}</span>${x.filial===fl?'':'<span class="tagf">'+esc(x.emp)+'</span>'}</td>
         <td class="num">${nf.format(x.qtd)}</td><td>${df(x.emissao)}</td>
         <td class="num"><b style="color:${f.c}">${x.idade} d</b></td><td>${x.cc||'<span class="code">—</span>'}</td></tr>`}).join('')+
@@ -1102,7 +1131,12 @@ function abrir(t,i){
   document.getElementById('scrim').classList.add('on');
   document.getElementById('drawer').focus();
 }
+function voltarFicha(){
+  const anterior = pilhaFicha.pop();
+  if(anterior) abrir(anterior.t, anterior.i, true);
+}
 function fechar(){
+  pilhaFicha=[];
   document.getElementById('drawer').classList.remove('on');
   document.getElementById('scrim').classList.remove('on');
   if(ultimoFoco&&ultimoFoco.focus) ultimoFoco.focus();
