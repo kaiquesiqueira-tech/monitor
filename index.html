@@ -809,6 +809,7 @@ function resumoTexto(){
       top.forEach(r=>{
         L.push('• Pedido ' + r.pedido + ' — ' + r.produto + ' — emissão ' + df(r.emissao));
         L.push('  ' + r.desc);
+        if(r.comprador) L.push('  Comprador: ' + r.comprador);
       });
       if(base.length>top.length) L.push('…e mais ' + (base.length-top.length) + ' itens.');
     }
@@ -839,6 +840,7 @@ function textoItem(){
     peds.forEach(x=>{
       L.push('• Pedido ' + x.pedido + ' — ' + x.produto + ' — emissão ' + df(x.emissao));
       L.push('  ' + x.desc);
+      if(x.comprador) L.push('  Comprador: ' + x.comprador);
     });
   }
   if(sols.length){
