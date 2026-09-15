@@ -498,6 +498,8 @@ function montar(){
     o.grupo = o.produto.slice(0,4);
     /* risco: 0 já tem pedido, 1 só solicitação, 2 sem cobertura, 3 sem cobertura e sem saldo */
     o.risco = o.emPedido > 0 ? 0 : (o.emSC > 0 ? 1 : (o.saldo > 0 ? 2 : 3));
+    const ref = PC.find(mesmos) || SC.find(mesmos) || PC.find(x=>x.produto===o.produto) || SC.find(x=>x.produto===o.produto);
+    o.um = ref ? ref.um : '';
     return o;
   });
 }
@@ -1032,8 +1034,10 @@ function xlsx(nomeAba,head,rows,larguras){
 let ultimoFoco=null, fichaAtual=null, pilhaFicha=[];
 const pf = new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',minimumFractionDigits:2});
 
+const fichaDe = (t,i) => t==='pc' ? PC[i] : (t==='sc' ? SC[i] : REP[i]);
 function abrir(t,i,voltando){
-  const r = t==='pc'?PC[i]:SC[i];
+  const r = fichaDe(t,i);
+  if(!r) return;
   const aberta = document.getElementById('drawer').classList.contains('on');
   if(aberta && fichaAtual && !voltando && !(fichaAtual.t===t && fichaAtual.i===i)) pilhaFicha.push(fichaAtual);
   if(!aberta) { ultimoFoco=document.activeElement; pilhaFicha=[]; }
@@ -1048,7 +1052,8 @@ function abrir(t,i,voltando){
   const btVoltar = document.getElementById('dVoltar');
   btVoltar.style.display = pilhaFicha.length ? '' : 'none';
   document.getElementById('dTitulo').textContent=r.desc;
-  document.getElementById('dSub').textContent=`${cod} · grupo ${r.grupo} · ${r.um} · ${emp} (${fl})`;
+  document.getElementById('dSub').textContent =
+    [cod, 'grupo ' + r.grupo, r.um, emp + ' (' + fl + ')'].filter(Boolean).join(' · ');
 
   const emPed=peds.filter(x=>x.filial===fl), emSol=sols.filter(x=>x.filial===fl);
   const qPed=emPed.reduce((s,x)=>s+x.qtd,0), qSol=emSol.reduce((s,x)=>s+x.qtd,0);
@@ -1067,7 +1072,10 @@ function abrir(t,i,voltando){
   } else {
     const box=(v,k,hi)=>`<div class="parm ${hi?'hi':''}"><div class="v">${v}</div><div class="k">${k}</div></div>`;
     s+='<div class="parms">';
-    s+=box(nf.format(pp)+' <span class="code">'+esc(r.um)+'</span>','Ponto de pedido');
+    const saldoAtual = g('saldo');
+    if(saldoAtual !== null && saldoAtual !== undefined)
+      s+=box(nf.format(saldoAtual)+(r.um?' <span class="code">'+esc(r.um)+'</span>':''),'Saldo em estoque', saldoAtual < pp);
+    s+=box(nf.format(pp)+(r.um?' <span class="code">'+esc(r.um)+'</span>':''),'Ponto de pedido');
     if(lote) s+=box(nf.format(lote),'Lote econômico');
     if(g('emax')) s+=box(nf.format(g('emax')),'Estoque máximo');
     if(g('seg')) s+=box(nf.format(g('seg')),'Estoque de segurança');
@@ -1086,6 +1094,9 @@ function abrir(t,i,voltando){
   s+=`<div class="parm ${venc.length?'hi':''}"><div class="v">${venc.length}</div><div class="k">linhas com entrega vencida</div></div>`;
   s+=`<div class="parm"><div class="v">${nf.format(qSol)}</div><div class="k">em solicitações sem pedido</div></div>`;
   s+='</div>';
+  const sAtual = P ? P[pc_.indexOf('saldo')] : null;
+  if(pp && sAtual !== null && sAtual !== undefined && sAtual < pp)
+    s+=`<div class="note">Saldo de ${nf.format(sAtual)} contra ponto de pedido de ${nf.format(pp)}: faltam ${nf.format(pp - sAtual)} para voltar ao nível.${qPed? ' Já existe pedido em aberto.' : (qSol? ' Há solicitação aberta, sem pedido ainda.' : ' Não há pedido nem solicitação em aberto.')}</div>`;
   if(pp && qPed>pp*3) s+=`<div class="note">A quantidade em pedido é ${(qPed/pp).toFixed(1)}× o ponto de pedido. Vale checar se há pedido antigo que deveria ter sido cancelado.</div>`;
   if(emSol.length && emPed.length) s+='<div class="note">Há solicitação aberta para um item que já tem pedido em aberto. Verifique duplicidade antes de gerar novo pedido.</div>';
   if(pp && qPed===0 && qSol>0) s+='<div class="note ok">Nada em pedido: a solicitação abaixo é a única reposição em andamento.</div>';
@@ -1196,7 +1207,8 @@ function resumoTexto(){
 
 function textoItem(){
   if(!fichaAtual) return '';
-  const r = fichaAtual.t==='pc' ? PC[fichaAtual.i] : SC[fichaAtual.i];
+  const r = fichaDe(fichaAtual.t, fichaAtual.i);
+  if(!r) return '';
   const cod = r.produto, fl = r.filial;
   const peds = PC.filter(x=>x.produto===cod && x.filial===fl);
   const sols = SC.filter(x=>x.produto===cod && x.filial===fl);
@@ -1219,8 +1231,9 @@ function textoItem(){
   }
   if(!peds.length && !sols.length){
     L.push('*Informações do item:*');
-    L.push('• ' + r.produto + ' — emissão ' + df(r.emissao));
+    L.push('• ' + r.produto + (r.emissao ? ' — emissão ' + df(r.emissao) : ''));
     L.push('  ' + r.desc);
+    if(r.saldo !== undefined) L.push('  Saldo ' + nf.format(r.saldo) + ' · ponto de pedido ' + nf.format(r.pp) + ' · sem pedido nem solicitação');
   }
   return L.join('\n');
 }
