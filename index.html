@@ -178,6 +178,15 @@ tbody tr:last-child td{border-bottom:none}
 .rlista li[tabindex]{cursor:pointer}
 .rlista li[tabindex]:hover .rdesc{color:var(--go)}
 .rdesc{font-size:13.5px;font-weight:500;line-height:1.3}
+.rtit{display:flex;gap:12px;align-items:flex-start;width:100%;text-align:left;background:none;
+  border:none;padding:0;margin:0 0 4px;cursor:pointer;color:inherit}
+.rtit h3{margin:0 0 4px}
+.rtit .subcard{margin:0 0 10px}
+.rtit .seta{margin-left:auto;color:var(--muted);font-size:13px;padding-top:3px}
+.rtit:hover h3{color:var(--go)}
+.rlista.rolagem{max-height:440px;overflow:auto;border-top:1px solid var(--line2)}
+.rver{margin-top:12px;width:100%}
+.card.aberta{border-color:var(--muted)}
 .subcard{margin:0 0 14px;font-size:12.5px;color:var(--muted)}
 .gr{width:100%;height:auto;display:block;overflow:visible}
 .gr .barra{transition:opacity .15s}
@@ -716,20 +725,33 @@ function revisoes(){
   return revisoes.cache;
 }
 
+let revAberta = new Set();
+function alternarRev(id){
+  if(revAberta.has(id)) revAberta.delete(id); else revAberta.add(id);
+  renderRevisao();
+}
+
 function renderRevisao(){
   const caixa = document.getElementById('revisao');
   caixa.innerHTML = revisoes().map(b => {
-    const mostra = b.linhas.slice(0, 8);
+    const aberta = revAberta.has(b.id);
+    const mostra = aberta ? b.linhas : b.linhas.slice(0, 8);
     const linhas = mostra.map(l => {
       const clicavel = l.t !== undefined;
       return `<li ${clicavel ? `tabindex="0" onclick="abrir('${l.t}',${l.i})" onkeydown="if(event.key==='Enter')abrir('${l.t}',${l.i})"` : ''}>
         <span class="rdesc">${esc(l.desc)}</span>
         <span class="code">${l.emp ? esc(l.emp) + (l.produto ? ' · ' : '') : ''}${l.produto ? esc(l.produto) : ''} — ${esc(l.nota)}</span></li>`;
     }).join('');
-    return `<div class="card"><h3>${esc(b.titulo)} <span class="cnt">${b.linhas.length}</span></h3>
-      <p class="subcard">${esc(b.texto)}</p>
-      <ul class="rlista">${linhas}</ul>
-      ${b.linhas.length > 8 ? `<p class="subcard" style="margin:10px 0 0">e mais ${b.linhas.length - 8}.</p>` : ''}</div>`;
+    const maisQue8 = b.linhas.length > 8;
+    return `<div class="card${aberta ? ' aberta' : ''}">
+      <button class="rtit" onclick="alternarRev('${b.id}')" aria-expanded="${aberta}">
+        <span><h3>${esc(b.titulo)} <span class="cnt">${b.linhas.length}</span></h3>
+        <p class="subcard">${esc(b.texto)}</p></span>
+        ${maisQue8 ? `<span class="seta">${aberta ? '▴' : '▾'}</span>` : ''}
+      </button>
+      <ul class="rlista${aberta ? ' rolagem' : ''}">${linhas}</ul>
+      ${maisQue8 ? `<button class="btn ghost rver" onclick="alternarRev('${b.id}')">${
+        aberta ? 'Ver menos' : 'Ver todos os ' + b.linhas.length}</button>` : ''}</div>`;
   }).join('') || '<div class="card"><h3>Nada a revisar</h3><p class="subcard">Nenhuma inconsistência encontrada nesta base.</p></div>';
 }
 
