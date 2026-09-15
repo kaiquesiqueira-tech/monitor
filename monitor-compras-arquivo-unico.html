@@ -791,29 +791,16 @@ function resumoTexto(){
   const rows = ordenar(filtrar(baseRows()));
   const L = [];
   L.push('*MONITOR PC E SC — ALMOXARIFADO*');
-  L.push('Posição de ' + hoje.toLocaleDateString('pt-BR') + ' · base de ' + df(DADOS.gerado));
-
-  const filtros = [textoOpcao('fSit'), textoOpcao('fPP'), textoOpcao('fFil'),
-                   textoOpcao('fGru'), textoOpcao('fCmp'), textoOpcao('fFor')].filter(Boolean);
-  const busca = document.getElementById('q').value.trim();
-  if(busca) filtros.push('busca: ' + busca);
-  if(sel){ const fs = faixas().find(f=>f.k===sel); if(fs) filtros.push(fs.l); }
-  if(filtros.length) L.push('_' + filtros.join(' · ') + '_');
   L.push('');
 
   if(!rows.length){ L.push('Nenhum item neste filtro.'); return L.join('\n'); }
 
   if(tab==='pc'){
     const venc = rows.filter(r=>r.atraso>0);
-    const v = venc.reduce((s,r)=>s+r.valor,0);
-    L.push('*' + rows.length + '* itens de pedido em aberto');
-    L.push('*' + venc.length + '* com entrega vencida — ' + mf.format(v) +
-           ' em ' + new Set(venc.map(r=>r.filial+r.pedido)).size + ' pedidos');
     const base = venc.length ? venc : rows;
     const top = base.slice().sort((a,b)=>b.atraso-a.atraso).slice(0,12);
     if(top.length){
-      L.push('');
-      L.push(venc.length ? '*Mais atrasados:*' : '*Itens em aberto:*');
+      L.push('*Informações do pedido:*');
       top.forEach(r=>{
         L.push('• Pedido ' + r.pedido + ' — ' + r.produto + ' — emissão ' + df(r.emissao));
         L.push('  ' + r.desc);
@@ -821,12 +808,8 @@ function resumoTexto(){
       if(base.length>top.length) L.push('…e mais ' + (base.length-top.length) + ' itens.');
     }
   } else {
-    const p30 = rows.filter(r=>r.idade>30);
-    L.push('*' + rows.length + '* itens de solicitação sem pedido');
-    L.push('*' + p30.length + '* parados há mais de 30 dias');
     const top = rows.slice().sort((a,b)=>b.idade-a.idade).slice(0,12);
-    L.push('');
-    L.push('*Paradas há mais tempo:*');
+    L.push('*Informações da solicitação:*');
     top.forEach(r=>{
       L.push('• Solicitação ' + r.sc + ' — ' + r.produto + ' — emissão ' + df(r.emissao));
       L.push('  ' + r.desc);
