@@ -152,7 +152,8 @@ tbody tr:hover{background:var(--panel2)}
 .card{background:var(--panel);border:1px solid var(--line);padding:18px 20px;box-shadow:var(--sombra)}
 .card h3{margin:0 0 4px;font-size:15px;font-weight:600}
 .secao{font-size:15px;font-weight:600;margin:26px 0 12px}
-.graficos{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+.graficos{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px}
+.graficos .card.larga{grid-column:1/-1}
 .graficos .card{padding:15px 16px}
 .graficos h3{margin:0 0 2px}
 .legf{display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--muted);margin:0 0 10px}
@@ -563,14 +564,14 @@ function porMes(linhas){
   return m;
 }
 
-function cartaFilial(nome, pedidos, solicitacoes){
+function cartaFilial(nome, pedidos, solicitacoes, larga){
   const mp = porMes(pedidos), ms = porMes(solicitacoes);
-  const meses = [...new Set([...mp.keys(), ...ms.keys()])].sort().slice(-8);
+  const meses = [...new Set([...mp.keys(), ...ms.keys()])].sort().slice(larga ? -12 : -8);
   if(!meses.length) return '';
 
-  const L = 360, A = 128, base = A - 26, topo = 14;
+  const L = larga ? 760 : 400, A = larga ? 190 : 165, base = A - 28, topo = 16;
   const passo = L / meses.length;
-  const larg = Math.min((passo - 8) / 2, 15);
+  const larg = Math.min((passo - 10) / 2, larga ? 26 : 19);
   const max = Math.max(1, ...meses.map(k => Math.max(mp.get(k)||0, ms.get(k)||0)));
 
   let svg = `<svg class="gr" viewBox="0 0 ${L} ${A}" preserveAspectRatio="none" role="img" aria-label="Emissões por mês em ${nome}">`;
@@ -585,13 +586,13 @@ function cartaFilial(nome, pedidos, solicitacoes){
       const x = centro + desloc, y = base - alt;
       svg += `<rect class="barra" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${larg.toFixed(1)}" height="${alt.toFixed(1)}" fill="${cor}" rx="1.5">`;
       svg += `<title>${rotulo}: ${qtd} ${palavra}</title></rect>`;
-      svg += `<text x="${(x + larg/2).toFixed(1)}" y="${(y - 4).toFixed(1)}" text-anchor="middle" font-size="10" fill="var(--muted)">${qtd}</text>`;
+      svg += `<text x="${(x + larg/2).toFixed(1)}" y="${(y - 5).toFixed(1)}" text-anchor="middle" font-size="${larga?12:11}" fill="var(--muted)">${qtd}</text>`;
     });
-    svg += `<text x="${centro.toFixed(1)}" y="${base + 14}" text-anchor="middle" font-size="10.5" fill="var(--muted)">${rotulo}</text>`;
+    svg += `<text x="${centro.toFixed(1)}" y="${base + 16}" text-anchor="middle" font-size="${larga?12:11.5}" fill="var(--muted)">${rotulo}</text>`;
   });
   svg += '</svg>';
 
-  return `<div class="card"><h3>${esc(nome)}</h3>
+  return `<div class="card${larga ? ' larga' : ''}"><h3>${esc(nome)}</h3>
     <p class="legf"><i class="p"></i>${pedidos.length} itens de pedido<i class="s"></i>${solicitacoes.length} de solicitação</p>
     ${svg}</div>`;
 }
@@ -602,8 +603,9 @@ function graficosPorFilial(){
   const pc = PC.filter(nopp), sc = SC.filter(nopp);
   const filiais = [...new Set([...pc, ...sc].map(r => r.emp))]
     .sort((a, b) => pc.filter(r => r.emp === b).length - pc.filter(r => r.emp === a).length);
-  const cartas = filiais.map(f =>
-    cartaFilial(f, pc.filter(r => r.emp === f), sc.filter(r => r.emp === f))).filter(Boolean);
+  const cartas = [cartaFilial('Todas as filiais', pc, sc, true)].concat(
+    filiais.map(f => cartaFilial(f, pc.filter(r => r.emp === f), sc.filter(r => r.emp === f)))
+  ).filter(Boolean);
   caixa.innerHTML = cartas.join('') || '<p class="subcard">Nada em aberto neste recorte.</p>';
 }
 
