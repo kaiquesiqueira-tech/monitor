@@ -510,7 +510,7 @@ let tab='pc', sel=null, sort={pc:{k:'atraso',dir:-1},sc:{k:'idade',dir:-1},rp:{k
 
 const COLS={
  pc:[{k:'emp',l:'Filial'},{k:'pedido',l:'Pedido'},{k:'produto',l:'Produto',main:1},
-     {k:'qtd',l:'Qtd',num:1},{k:'valor',l:'Valor',num:1},{k:'entrega',l:'Entrega'},
+     {k:'qtd',l:'Qtd',num:1},{k:'valor',l:'Valor',num:1},{k:'emissao',l:'Emissão'},{k:'entrega',l:'Entrega'},
      {k:'atraso',l:'Atraso',num:1},{k:'ppq',l:'Ponto ped.',num:1},{k:'forn',l:'Fornecedor'},{k:'comprador',l:'Comprador'},{k:'sc',l:'SC'}],
  sc:[{k:'emp',l:'Filial'},{k:'sc',l:'Solicitação'},{k:'produto',l:'Produto',main:1},
      {k:'qtd',l:'Qtd',num:1},{k:'emissao',l:'Emissão'},{k:'idade',l:'Parada há',num:1},
@@ -1097,13 +1097,13 @@ function abrir(t,i,voltando){
   if(peds.length){
     const ord=peds.slice().sort((a,b)=>(a.filial===fl?-1:1)-(b.filial===fl?-1:1)||b.atraso-a.atraso);
     s+='<div class="dsec"><h3>Pedidos em aberto deste item — clique para abrir</h3><table class="dt"><thead><tr>'+
-       '<th>Pedido</th><th>Fornecedor</th><th class="num">Qtd</th><th class="num">Preço</th><th>Entrega</th><th class="num">Atraso</th></tr></thead><tbody>'+
+       '<th>Pedido</th><th>Fornecedor</th><th class="num">Qtd</th><th class="num">Preço</th><th>Emissão</th><th>Entrega</th><th class="num">Atraso</th></tr></thead><tbody>'+
        ord.map(x=>{const f=faixa(Math.max(x.atraso,1));const aqui=(x.filial===fl&&x.i===(fichaAtual.t==='pc'?fichaAtual.i:-1));
         return `<tr class="${x.filial===fl?'':'other'}${aqui?' atual':''}" tabindex="0"
         onclick="abrir('pc',${x.i})" onkeydown="if(event.key==='Enter'){event.preventDefault();abrir('pc',${x.i})}">
         <td>${x.pedido}${x.filial===fl?'':'<span class="tagf">'+esc(x.emp)+'</span>'}<div class="code">${esc(x.comprador)}</div></td>
-        <td>${esc(x.forn)}</td><td class="num">${nf.format(x.qtd)}</td><td class="num">${pf.format(x.preco)}</td>
-        <td>${df(x.entrega)}</td><td class="num">${x.atraso>0?`<b style="color:${f.c}">${x.atraso} d</b>`:'<span class="code">no prazo</span>'}</td></tr>`}).join('')+
+        <td>${esc(x.fornnome||x.forn)}</td><td class="num">${nf.format(x.qtd)}</td><td class="num">${pf.format(x.preco)}</td>
+        <td>${df(x.emissao)}</td><td>${df(x.entrega)}</td><td class="num">${x.atraso>0?`<b style="color:${f.c}">${x.atraso} d</b>`:'<span class="code">no prazo</span>'}</td></tr>`}).join('')+
        '</tbody></table></div>';
     const pr=emPed.map(x=>x.preco), up=g('ultpreco');
     if(pr.length && up){
