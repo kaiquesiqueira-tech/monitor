@@ -18,7 +18,7 @@ from pathlib import Path
 
 BASE = Path(__file__).parent
 ENTRADA = BASE / "dados"
-INICIOS = ["mata121", "mata110", "PROD_EM_PP"]
+INICIOS = ["mata121", "mata110", "PROD_EM_PP", "SALDO"]
 PLANILHAS = (".xlsx", ".xlsm", ".xls")
 
 INTERVALO = 10          # de quantos em quantos segundos olha a pasta
@@ -34,27 +34,27 @@ def log(msg):
 
 
 def achar(inicio):
-    """Acha o arquivo pelo começo do nome, tolerando 'mata121 (1).xlsx',
-    'mata121.xlsx.xlsx' e maiúsculas trocadas."""
+    """Todos os arquivos que começam com o nome dado. Tolera 'mata121 (1).xlsx',
+    'mata121.xlsx.xlsx' e maiúsculas trocadas. O saldo vem em mais de um arquivo,
+    porque as filiais estão em grupos diferentes no Protheus."""
     if not ENTRADA.exists():
-        return None
-    achados = [a for a in ENTRADA.iterdir()
-               if a.is_file()
-               and a.name.lower().startswith(inicio.lower())
-               and a.suffix.lower() in PLANILHAS
-               and not a.name.startswith("~$")]
-    return max(achados, key=lambda a: a.stat().st_mtime) if achados else None
+        return []
+    return sorted(a for a in ENTRADA.iterdir()
+                  if a.is_file()
+                  and a.name.lower().startswith(inicio.lower())
+                  and a.suffix.lower() in PLANILHAS
+                  and not a.name.startswith("~$"))
 
 
 def impressao_digital():
-    """Tamanho e data de modificação de cada arquivo: muda se alguém salvou por cima."""
+    """Tamanho e data de modificação de cada arquivo vigiado: muda se alguém salvou
+    por cima. Qualquer um deles mudando já dispara a publicação."""
     marcas = []
     for inicio in INICIOS:
-        caminho = achar(inicio)
-        if caminho:
+        for caminho in achar(inicio):
             info = caminho.stat()
             marcas.append((caminho.name, info.st_size, round(info.st_mtime)))
-    return tuple(marcas)
+    return tuple(sorted(marcas))
 
 
 def rodar(comando, silencioso=False):
@@ -111,12 +111,13 @@ def main():
 
     anterior = impressao_digital()
     if not anterior:
-        log("Nao achei nenhum dos tres arquivos nessa pasta.")
+        log("Nao achei nenhuma das planilhas do Protheus nessa pasta.")
         presentes = [a.name for a in sorted(ENTRADA.iterdir())] if ENTRADA.exists() else []
         if presentes:
             log("O que existe la dentro: " + ", ".join(presentes))
         else:
             log("A pasta esta vazia.")
+        log("Esperados: mata121, mata110, PROD_EM_PP e os arquivos SALDO.")
         log("Se os seus arquivos estao em outra pasta 'monitor', rode o sincronizar.bat que fica la.")
     else:
         for nome, tamanho, _ in anterior:

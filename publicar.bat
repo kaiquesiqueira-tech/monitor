@@ -11,6 +11,7 @@ set FALTA=0
 if not exist "dados\mata121.xlsx" (echo  [x] falta dados\mata121.xlsx & set FALTA=1) else (echo  [ok] dados\mata121.xlsx)
 if not exist "dados\mata110.xlsx" (echo  [x] falta dados\mata110.xlsx & set FALTA=1) else (echo  [ok] dados\mata110.xlsx)
 if not exist "dados\PROD_EM_PP.xlsx" (echo  [x] falta dados\PROD_EM_PP.xlsx & set FALTA=1) else (echo  [ok] dados\PROD_EM_PP.xlsx)
+dir /b "dados\SALDO*.xls*" >nul 2>&1 && (for /f "delims=" %%s in ('dir /b "dados\SALDO*.xls*"') do echo  [ok] dados\%%s) || echo  [ ] nenhum arquivo SALDO: a aba Reposicao fica vazia
 if "%FALTA%"=="1" goto faltando
 
 echo.
