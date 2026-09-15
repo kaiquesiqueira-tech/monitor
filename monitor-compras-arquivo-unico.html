@@ -176,6 +176,8 @@ tbody tr:hover{background:var(--panel2)}
   width:32px;height:32px;cursor:pointer;font-size:18px;line-height:1;flex:0 0 auto}
 .dclose:hover{border-color:var(--muted)}
 .dbody{padding:2px 22px 36px}
+.dacoes{padding:16px 0 4px}
+.dacoes .btn{width:100%}
 .dsec{padding:18px 0;border-bottom:1px solid var(--line2)}
 .dsec:last-child{border-bottom:none}
 .dsec h3{margin:0 0 12px;font-size:12.5px;font-weight:600;color:var(--muted);letter-spacing:.02em}
@@ -684,12 +686,12 @@ function xlsx(nomeAba,head,rows,larguras){
 }
 
 /* ---------- detalhe do produto ---------- */
-let ultimoFoco=null;
+let ultimoFoco=null, fichaAtual=null;
 const pf = new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',minimumFractionDigits:2});
 
 function abrir(t,i){
   const r = t==='pc'?PC[i]:SC[i];
-  ultimoFoco=document.activeElement;
+  ultimoFoco=document.activeElement; fichaAtual={t:t,i:i};
   const cod=r.produto, fl=r.filial, emp=r.emp;
   const peds=PC.filter(x=>x.produto===cod), sols=SC.filter(x=>x.produto===cod);
   const pAqui=DADOS.parm[fl+'|'+cod]||null;
@@ -706,6 +708,10 @@ function abrir(t,i){
   const pp=g('pp'), lote=g('lote');
 
   let s='';
+  s+='<div class="dacoes"><button class="btn zap" onclick="compartilharItem()">'+
+     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-12.3 7.4L3 20.5l1.7-5.5A8.4 8.4 0 1 1 21 11.5z"/></svg>'+
+     'Enviar este item no WhatsApp</button></div>';
+
   /* parâmetros */
   s+='<div class="dsec"><h3>Parâmetros de estoque'+(pAqui?'':' — cadastrados em outra filial')+'</h3>';
   if(!P){
@@ -820,6 +826,45 @@ function resumoTexto(){
   let txt = L.join('\n');
   if(txt.length > 1600) txt = txt.slice(0,1580) + '\n…';
   return txt;
+}
+
+function textoItem(){
+  if(!fichaAtual) return '';
+  const r = fichaAtual.t==='pc' ? PC[fichaAtual.i] : SC[fichaAtual.i];
+  const cod = r.produto, fl = r.filial;
+  const peds = PC.filter(x=>x.produto===cod && x.filial===fl);
+  const sols = SC.filter(x=>x.produto===cod && x.filial===fl);
+  const L = ['*MONITOR PC E SC — ALMOXARIFADO*',''];
+  if(peds.length){
+    L.push('*Informações do pedido:*');
+    peds.forEach(x=>{
+      L.push('• Pedido ' + x.pedido + ' — ' + x.produto + ' — emissão ' + df(x.emissao));
+      L.push('  ' + x.desc);
+    });
+  }
+  if(sols.length){
+    if(peds.length) L.push('');
+    L.push('*Informações da solicitação:*');
+    sols.forEach(x=>{
+      L.push('• Solicitação ' + x.sc + ' — ' + x.produto + ' — emissão ' + df(x.emissao));
+      L.push('  ' + x.desc);
+    });
+  }
+  if(!peds.length && !sols.length){
+    L.push('*Informações do item:*');
+    L.push('• ' + r.produto + ' — emissão ' + df(r.emissao));
+    L.push('  ' + r.desc);
+  }
+  return L.join('\n');
+}
+
+async function compartilharItem(){
+  const texto = textoItem();
+  if(!texto) return;
+  try{
+    if(navigator.share){ await navigator.share({ text: texto, title: 'Monitor PC e SC' }); return; }
+  }catch(e){ if(e && e.name === 'AbortError') return; }
+  window.open('https://wa.me/?text=' + encodeURIComponent(texto), '_blank', 'noopener');
 }
 
 async function compartilhar(){
