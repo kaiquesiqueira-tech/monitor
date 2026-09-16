@@ -2,6 +2,10 @@
 dados/*.xlsx
 dados/*.xls
 
+# Controle local da publicacao automatica
+.estado_publicacao.json
+publicacao.log
+
 # Python
 __pycache__/
 *.pyc

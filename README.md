@@ -14,7 +14,8 @@ servidor, banco de dados nem instalação.
 | `index.html` | O monitor inteiro: tela, filtros, detalhe do produto e gerador de Excel |
 | `dados.js` | A base extraída do Protheus. É o único arquivo que muda a cada atualização |
 | `gerar_dados.py` | Converte os três relatórios do Protheus em `dados.js` |
-| `sincronizar.py`, `sincronizar.bat` | Vigia a pasta `dados` e publica sozinho quando os arquivos mudam |
+| `verificar.py`, `agendar.bat`, `desagendar.bat` | Verificação automática de 2 em 2 minutos, sem janela aberta |
+| `sincronizar.py`, `sincronizar.bat` | Mesma coisa, porém numa janela aberta que mostra cada passo |
 | `publicar.bat` | Gera e publica na hora, com um clique |
 | `historico.js` | Um retrato por dia, para o gráfico de tendência |
 | `resumo_do_dia.txt` | Texto pronto para colar no WhatsApp, gerado a cada publicação |
