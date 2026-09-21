@@ -219,13 +219,15 @@ tbody tr:last-child td{border-bottom:none}
   width:32px;height:32px;cursor:pointer;font-size:18px;line-height:1;flex:0 0 auto}
 .dclose:hover{border-color:var(--muted)}
 .dbody{padding:2px 22px 36px}
-.dacoes{padding:16px 0 4px}
+.dacoes{padding:4px 0 4px}
 .dacoes .btn{width:100%}
 .dsec{padding:18px 0;border-bottom:1px solid var(--line2)}
 .dsec:last-child{border-bottom:none}
 .dsec h3{margin:0 0 12px;font-size:12.5px;font-weight:600;color:var(--muted);letter-spacing:.02em}
 .parms{display:grid;grid-template-columns:repeat(auto-fit,minmax(122px,1fr));gap:14px 16px}
 .parm .v{font-family:"Barlow Condensed","IBM Plex Sans",sans-serif;font-weight:600;font-size:24px;line-height:1.05}
+.parm.txt .v{font-family:"IBM Plex Sans",sans-serif;font-size:15px;font-weight:600;line-height:1.3;word-break:break-word}
+.parm .naoinf{font-weight:400;color:var(--muted);font-size:13.5px}
 .parm .k{font-size:11.5px;color:var(--muted);margin-top:3px;line-height:1.3}
 .parm.hi .v{color:var(--s3)}
 .note{background:var(--panel2);border-left:3px solid var(--s2);padding:10px 13px;font-size:13.5px;margin-top:12px;border-radius:0 var(--r) var(--r) 0}
@@ -1068,6 +1070,30 @@ function abrir(t,i,voltando){
   const pp=g('pp'), lote=g('lote');
 
   let s='';
+  /* dados do documento em que se clicou */
+  if(fichaAtual.t !== 'rp'){
+    const cx = (v,k) => `<div class="parm txt"><div class="v">${v || '<span class="naoinf">não informado</span>'}</div><div class="k">${k}</div></div>`;
+    s += '<div class="dsec"><h3>' + (fichaAtual.t==='pc' ? 'Este pedido' : 'Esta solicitação') + '</h3><div class="parms">';
+    if(fichaAtual.t==='pc'){
+      s += cx(r.pedido,'Pedido');
+      s += cx(df(r.emissao),'Emissão');
+      s += cx(df(r.entrega),'Entrega');
+      s += cx(nf.format(r.qtd)+(r.um?' <span class="code">'+esc(r.um)+'</span>':''),'Quantidade');
+      s += cx(esc(r.cc),'Centro de custo');
+      s += cx(esc(r.classe),'Classe de valor');
+      s += cx(esc(r.fornnome||r.forn),'Fornecedor');
+      s += cx(esc(r.comprador),'Comprador');
+      if(r.sc) s += cx(r.sc,'Solicitação de origem');
+    } else {
+      s += cx(r.sc+' <span class="code">item '+r.item+'</span>','Solicitação');
+      s += cx(df(r.emissao),'Emissão');
+      s += cx(nf.format(r.qtd)+(r.um?' <span class="code">'+esc(r.um)+'</span>':''),'Quantidade');
+      s += cx(esc(r.cc),'Centro de custo');
+      s += cx(esc(r.classe),'Classe de valor');
+      s += cx(esc(r.solicitante),'Solicitante');
+    }
+    s += '</div></div>';
+  }
   s+='<div class="dacoes"><button class="btn zap" onclick="compartilharItem()">'+
      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-12.3 7.4L3 20.5l1.7-5.5A8.4 8.4 0 1 1 21 11.5z"/></svg>'+
      'Enviar este item no WhatsApp</button></div>';

@@ -287,6 +287,20 @@ def main():
     if col_nome:
         print(f"  nome do fornecedor: coluna '{col_nome}'")
 
+    col_solic = next((c for c in ("Solicitante", "Solicitado por", "Cod.Solicit",
+                                  "Cod Solicitante", "Solicit", "Usuario")
+                      if c in sc.columns), None)
+    if col_solic:
+        print(f"  solicitante: coluna '{col_solic}'")
+
+    def texto(valor):
+        """Centro de custo e classe de valor vêm como número; viram texto sem o .0."""
+        if pd.isna(valor):
+            return ""
+        if isinstance(valor, float) and valor.is_integer():
+            return str(int(valor))
+        return str(valor).strip()
+
     pedidos = []
     for _, r in pc.iterrows():
         f, empresa = filial(r["Filial"])
@@ -297,8 +311,9 @@ def main():
             float(r["Quantidade"]), str(r["Unidade"]).strip(), float(r["Prc Unitario"]),
             data(r["Data Emissao"]), data(r["Dt. Entrega"]), str(r["Fornecedor"]).strip(),
             str(r["Comprador"]).strip(), inteiro(r["Numero da SC"]), cod[:4],
-            "" if pd.isna(r["Centro Custo"]) else str(int(r["Centro Custo"])), pp, p[0], p[1],
+            texto(r.get("Centro Custo")), pp, p[0], p[1],
             "" if not col_nome or pd.isna(r[col_nome]) else str(r[col_nome]).strip(),
+            texto(r.get("Classe Valor")),
         ])
 
     solicitacoes = []
@@ -310,7 +325,9 @@ def main():
             f, empresa, str(r["Numero da SC"]).zfill(6), str(r["Item da SC"]).zfill(4), cod,
             str(r["Descricao"]).strip(), float(r["Quantidade"]), str(r["Unid Medida"]).strip(),
             data(r["DT Emissao"]), cod[:4],
-            "" if pd.isna(r["Centro Custo"]) else str(int(r["Centro Custo"])), pp, p[0], p[1],
+            texto(r.get("Centro Custo")), pp, p[0], p[1],
+            texto(r.get("Classe Valor")),
+            "" if not col_solic or pd.isna(r[col_solic]) else str(r[col_solic]).strip(),
         ])
 
     # nomes das filiais a partir dos pedidos e solicitações
@@ -338,9 +355,9 @@ def main():
     saida = {
         "pc_cols": ["filial", "emp", "pedido", "produto", "desc", "qtd", "um", "preco",
                     "emissao", "entrega", "forn", "comprador", "sc", "grupo", "cc",
-                    "pp", "ppq", "lote", "fornnome"],
+                    "pp", "ppq", "lote", "fornnome", "classe"],
         "sc_cols": ["filial", "emp", "sc", "item", "produto", "desc", "qtd", "um",
-                    "emissao", "grupo", "cc", "pp", "ppq", "lote"],
+                    "emissao", "grupo", "cc", "pp", "ppq", "lote", "classe", "solicitante"],
         "parm_cols": ["pp", "lote", "emax", "seg", "emb", "ultpreco",
                       "ultcompra", "consini", "dtincl", "armazem", "saldo"],
         "rep_cols": ["filial", "emp", "produto", "desc", "pp", "lote", "saldo"],
