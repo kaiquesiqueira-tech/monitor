@@ -476,6 +476,10 @@ const FX = {
 };
 const nomeCC = r => (DADOS.ccdesc||{})[r.filial+'|'+r.cc] || '';
 const nomeCL = r => (DADOS.cldesc||{})[r.filial+'|'+r.classe] || '';
+/* se a base foi publicada sem as tabelas de descrição, avisa em vez de só mostrar o código */
+const semTabelas = () => !Object.keys(DADOS.ccdesc||{}).length && !Object.keys(DADOS.cldesc||{}).length;
+const avisoDesc = () => semTabelas()
+  ? '<div class="code">base publicada sem a tabela de descrições</div>' : '';
 const faixas = () => FX[tab==='sc'||tab==='rp' ? tab : 'pc'];
 /* valor que define a faixa de cada linha, conforme a aba */
 const vf = r => tab==='pc' ? r.atraso : (tab==='sc' ? r.idade : r.risco);
@@ -1084,8 +1088,8 @@ function abrir(t,i,voltando){
       s += cx(df(r.emissao),'Emissão');
       s += cx(df(r.entrega),'Entrega');
       s += cx(nf.format(r.qtd)+(r.um?' <span class="code">'+esc(r.um)+'</span>':''),'Quantidade');
-      s += cx(esc(nomeCC(r) || r.cc), 'Centro de custo' + (nomeCC(r) && r.cc ? ' · ' + r.cc : ''));
-      s += cx(esc(nomeCL(r) || r.classe), 'Classe de valor' + (nomeCL(r) && r.classe ? ' · ' + r.classe : ''));
+      s += cx(esc(nomeCC(r) || r.cc) + (r.cc && !nomeCC(r) ? avisoDesc() : ''), 'Centro de custo' + (nomeCC(r) && r.cc ? ' · ' + r.cc : ''));
+      s += cx(esc(nomeCL(r) || r.classe) + (r.classe && !nomeCL(r) ? avisoDesc() : ''), 'Classe de valor' + (nomeCL(r) && r.classe ? ' · ' + r.classe : ''));
       s += cx(esc(r.fornnome||r.forn),'Fornecedor');
       s += cx(esc(r.comprador),'Comprador');
       if(r.sc) s += cx(r.sc,'Solicitação de origem');
@@ -1093,8 +1097,8 @@ function abrir(t,i,voltando){
       s += cx(r.sc+' <span class="code">item '+r.item+'</span>','Solicitação');
       s += cx(df(r.emissao),'Emissão');
       s += cx(nf.format(r.qtd)+(r.um?' <span class="code">'+esc(r.um)+'</span>':''),'Quantidade');
-      s += cx(esc(nomeCC(r) || r.cc), 'Centro de custo' + (nomeCC(r) && r.cc ? ' · ' + r.cc : ''));
-      s += cx(esc(nomeCL(r) || r.classe), 'Classe de valor' + (nomeCL(r) && r.classe ? ' · ' + r.classe : ''));
+      s += cx(esc(nomeCC(r) || r.cc) + (r.cc && !nomeCC(r) ? avisoDesc() : ''), 'Centro de custo' + (nomeCC(r) && r.cc ? ' · ' + r.cc : ''));
+      s += cx(esc(nomeCL(r) || r.classe) + (r.classe && !nomeCL(r) ? avisoDesc() : ''), 'Classe de valor' + (nomeCL(r) && r.classe ? ' · ' + r.classe : ''));
       s += cx(esc(r.solicitante),'Solicitante');
     }
     s += '</div></div>';
