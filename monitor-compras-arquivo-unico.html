@@ -342,7 +342,7 @@ tbody tr:last-child td{border-bottom:none}
     </div>
     <div class="strip" id="strip"></div>
   </div>
-  <div class="striphint">Cada faixa é um intervalo de atraso. Clique para filtrar a lista.</div>
+  <div class="striphint" id="dica">Cada faixa é um intervalo de atraso. Clique para filtrar a lista.</div>
 </section>
 
 <nav class="tabs" role="tablist">
@@ -578,7 +578,11 @@ function render(){
     `<th class="${s.k===c.k?'on':''} ${c.num?'num':''}"><button onclick="ordena('${c.k}')">${c.l}${s.k===c.k?(s.dir<0?' ↓':' ↑'):''}</button></th>`).join('');
   const tb=document.getElementById('tbody');
   if(!rows.length){
-    tb.innerHTML=`<tr><td colspan="${cols.length+1}"><div class="empty"><b>Nada por aqui</b>Ajuste os filtros acima para ver outros itens.</div></td></tr>`;
+    const semBase = (tab==='rp' && !(DADOS.rep && DADOS.rep.length));
+    tb.innerHTML=`<tr><td colspan="${cols.length+1}"><div class="empty">${ semBase
+      ? '<b>Esta base não tem o saldo em estoque</b>O dados.js publicado foi gerado sem os arquivos de saldo. '+
+        'Confira se o gerar_dados.py é o mais recente e se os arquivos SALDO estão na pasta dados, e publique de novo.'
+      : '<b>Nada por aqui</b>Ajuste os filtros acima para ver outros itens.'}</div></td></tr>`;
   } else {
     tb.innerHTML=ordenar(rows).slice(0,2500).map(r=>linha(r,cols)).join('');
   }
@@ -646,6 +650,9 @@ function renderHero(rows){
   }
   // faixas calculadas sobre a base sem o filtro de faixa
   const all = filtrarSemFaixa();
+  document.getElementById('dica').textContent = tab==='rp'
+    ? 'Cada faixa mostra se a falta já está coberta por pedido ou solicitação. Clique para filtrar a lista.'
+    : 'Cada faixa é um intervalo de atraso. Clique para filtrar a lista.';
   document.getElementById('strip').innerHTML = faixas().map(f=>{
     const n = all.filter(r=>{const d=vf(r);return d>=f.min&&d<=f.max;}).length;
     return `<button class="seg ${n?'':'z'}" style="background:${f.c};flex:${n} 1 0" aria-pressed="${sel===f.k}"
@@ -1372,7 +1379,7 @@ function popularFiltros(){
   const uniq=(arr,f)=>[...new Set(arr.map(f))].filter(Boolean).sort();
   const fil=new Map(); PC.concat(SC).forEach(r=>fil.set(r.filial,r.emp));
   opts('fFil',[...fil].sort((a,b)=>a[1]<b[1]?-1:1).map(([k,v])=>[k,v]),'Todas as filiais');
-  opts('fGru',uniq(PC.concat(SC),r=>r.grupo).map(g=>[g,'Grupo '+g]),'Todos os grupos');
+  opts('fGru',uniq(PC.concat(SC).concat(REP),r=>r.grupo).map(g=>[g,'Grupo '+g]),'Todos os grupos');
   opts('fCmp',uniq(PC,r=>r.comprador).map(c=>[c,c]),'Todos os compradores');
   opts('fFor',uniq(PC,r=>r.forn).map(c=>[c,c]),'Todos os fornecedores');
 }
