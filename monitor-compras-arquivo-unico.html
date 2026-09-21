@@ -943,7 +943,7 @@ function toggleFaixa(k){ sel = sel===k?null:k; render(); }
 function ordena(k){ const s=sort[tab]; if(s.k===k) s.dir*=-1; else {s.k=k;s.dir=-1;} render(); }
 function limpar(){
   ['q','fFil','fGru','fCmp','fFor'].forEach(i=>document.getElementById(i).value='');
-  document.getElementById('fPP').value='2';
+  document.getElementById('fPP').value='0';
   document.getElementById('fSit').value='-999999'; sel=null; render();
 }
 function opts(id,vals,label){
