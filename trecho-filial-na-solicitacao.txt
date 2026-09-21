@@ -1,0 +1,19 @@
+Se você preferir editar o index.html que já está na sua pasta, em vez de
+substituir o arquivo inteiro, são duas linhas. Procure por:
+
+    L.push('• Solicitação ' + r.sc + ' — ' + r.produto + ' — emissão ' + df(r.emissao));
+
+e troque por:
+
+    L.push('• Solicitação ' + r.sc + ' — ' + r.emp + ' — ' + r.produto + ' — emissão ' + df(r.emissao));
+
+Depois procure por (repare que aqui a variável é x, não r):
+
+      L.push('• Solicitação ' + x.sc + ' — ' + x.produto + ' — emissão ' + df(x.emissao));
+
+e troque por:
+
+      L.push('• Solicitação ' + x.sc + ' — ' + x.emp + ' — ' + x.produto + ' — emissão ' + df(x.emissao));
+
+A primeira é a mensagem da lista inteira, a segunda é a do botão dentro da
+ficha do produto.

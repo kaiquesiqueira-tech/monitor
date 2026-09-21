@@ -1238,7 +1238,7 @@ function resumoTexto(){
     const top = rows.slice().sort((a,b)=>b.idade-a.idade).slice(0,12);
     L.push('*Informações da solicitação:*');
     top.forEach(r=>{
-      L.push('• Solicitação ' + r.sc + ' — ' + r.produto + ' — emissão ' + df(r.emissao));
+      L.push('• Solicitação ' + r.sc + ' — ' + r.emp + ' — ' + r.produto + ' — emissão ' + df(r.emissao));
       L.push('  ' + r.desc);
     });
     if(rows.length>top.length) L.push('…e mais ' + (rows.length-top.length) + ' solicitações.');
@@ -1269,7 +1269,7 @@ function textoItem(){
     if(peds.length) L.push('');
     L.push('*Informações da solicitação:*');
     sols.forEach(x=>{
-      L.push('• Solicitação ' + x.sc + ' — ' + x.produto + ' — emissão ' + df(x.emissao));
+      L.push('• Solicitação ' + x.sc + ' — ' + x.emp + ' — ' + x.produto + ' — emissão ' + df(x.emissao));
       L.push('  ' + x.desc);
     });
   }
