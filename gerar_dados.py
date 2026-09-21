@@ -57,6 +57,8 @@ ARQ_SC = achar("mata110")
 ARQ_PC = achar("mata121")
 ARQ_PP = achar("PROD_EM_PP")
 ARQ_SALDO = achar_todos("SALDO")
+ARQ_CCUSTO = achar_todos("CENTRO")
+ARQ_CLASSE = achar_todos("CLASSE")
 
 
 def conferir_arquivos():
@@ -76,6 +78,15 @@ def conferir_arquivos():
         print(f"  saldo em estoque: {arq.name}")
     if not ARQ_SALDO:
         print("  saldo em estoque: nenhum arquivo SALDO*.xlsx (a aba Reposicao fica vazia)")
+
+
+def texto_codigo(v):
+    """Códigos vêm como número na exportação; viram texto sem o .0."""
+    if v is None or (isinstance(v, float) and pd.isna(v)):
+        return ""
+    if isinstance(v, float) and v.is_integer():
+        return str(int(v))
+    return str(v).strip()
 
 
 def codigo(v):
@@ -136,6 +147,62 @@ def ler_parametros_bruto():
 
     total_pp = len(df)  # linhas com código válido
     return parm, total_pp
+
+
+def ler_centros_de_custo():
+    """Descrição do centro de custo por filial. O arquivo já traz a coluna Filial,
+    então a relação é direta."""
+    nomes = {}
+    for arq in ARQ_CCUSTO:
+        df = pd.read_excel(arq, header=1)
+        df.columns = [str(c).strip() for c in df.columns]
+        if "C Custo" not in df.columns:
+            continue
+        for _, r in df.dropna(subset=["C Custo"]).iterrows():
+            fil = str(r["Filial"]).split("-")[0].strip().zfill(6)
+            cod = texto_codigo(r["C Custo"])
+            desc = str(r.get("Desc Moeda 1", "")).strip()
+            if cod and desc and desc.lower() != "nan":
+                nomes[fil + "|" + cod] = desc
+    return nomes
+
+
+def ler_tabelas_de_classe():
+    """Cada arquivo CLASSE_* é a tabela de uma empresa. Como o arquivo não diz a
+    filial, a relação é descoberta pelo uso: para cada filial fica a tabela que
+    reconhece mais códigos dos pedidos e solicitações dela."""
+    tabelas = {}
+    for arq in ARQ_CLASSE:
+        df = pd.read_excel(arq, header=1)
+        df.columns = [str(c).strip() for c in df.columns]
+        col_cod = next((c for c in df.columns if "Cod" in c and "Valor" in c), None)
+        col_desc = next((c for c in df.columns if "Desc" in c), None)
+        if not col_cod or not col_desc:
+            continue
+        nome = arq.stem.split("_")[-1].upper()
+        tabelas[nome] = {texto_codigo(r[col_cod]): str(r[col_desc]).strip()
+                         for _, r in df.dropna(subset=[col_cod]).iterrows()}
+    return tabelas
+
+
+def relacionar_classes(tabelas, usos):
+    """usos: {filial: set de códigos de classe usados}. Devolve {filial|codigo: descrição}."""
+    nomes = {}
+    if not tabelas:
+        return nomes
+    for fil, codigos in sorted(usos.items()):
+        if not codigos:
+            continue
+        placar = sorted(((sum(1 for c in codigos if c in t), nome)
+                         for nome, t in tabelas.items()), reverse=True)
+        acertos, escolhida = placar[0]
+        if acertos == 0:
+            print(f"  classe de valor: filial {fil} sem tabela correspondente")
+            continue
+        print(f"  classe de valor: filial {fil} -> {escolhida} ({acertos} de {len(codigos)} codigos)")
+        for cod, desc in tabelas[escolhida].items():
+            nomes[fil + "|" + cod] = desc
+    return nomes
 
 
 def ler_saldos():
@@ -352,6 +419,26 @@ def main():
                           descricoes.get(cod) or desc_sb2.get(cod, "Sem descrição no cadastro"),
                           float(v[0]), float(v[1]), float(v[10])])
 
+    # descrições de centro de custo e classe de valor, relacionadas por filial
+    usos = {}
+    i_cl_pc, i_fil = saida_indices = None, None
+    for linha in pedidos:
+        usos.setdefault(linha[0], set()).add(linha[19])
+    for linha in solicitacoes:
+        usos.setdefault(linha[0], set()).add(linha[14])
+    for fil in usos:
+        usos[fil].discard("")
+
+    nomes_cc = ler_centros_de_custo()
+    nomes_cl = relacionar_classes(ler_tabelas_de_classe(), usos)
+
+    # só entram no arquivo os pares que aparecem em algum documento
+    usados_cc = {l[0] + "|" + l[14] for l in pedidos if l[14]} | {l[0] + "|" + l[10] for l in solicitacoes if l[10]}
+    usados_cl = {l[0] + "|" + l[19] for l in pedidos if l[19]} | {l[0] + "|" + l[14] for l in solicitacoes if l[14]}
+    cc_desc = {k: v for k, v in nomes_cc.items() if k in usados_cc}
+    cl_desc = {k: v for k, v in nomes_cl.items() if k in usados_cl}
+    print(f"  {len(cc_desc)} centros de custo e {len(cl_desc)} classes de valor com descrição")
+
     saida = {
         "pc_cols": ["filial", "emp", "pedido", "produto", "desc", "qtd", "um", "preco",
                     "emissao", "entrega", "forn", "comprador", "sc", "grupo", "cc",
@@ -361,6 +448,8 @@ def main():
         "parm_cols": ["pp", "lote", "emax", "seg", "emb", "ultpreco",
                       "ultcompra", "consini", "dtincl", "armazem", "saldo"],
         "rep_cols": ["filial", "emp", "produto", "desc", "pp", "lote", "saldo"],
+        "ccdesc": cc_desc,
+        "cldesc": cl_desc,
         "rep": reposicao,
         "pc": pedidos,
         "sc": solicitacoes,
