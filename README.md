@@ -57,6 +57,11 @@ Alternativa para quem prefere linha de comando, ou para deixar automatizado:
    - `dados/SALDO_FISICO_02.xlsx` e `dados/SALDO_FISICO_10.xlsx` — SB2, saldo em estoque
      (qualquer arquivo começando com `SALDO` é lido; são dois porque as filiais estão
      em grupos diferentes no Protheus)
+   - `dados/CENTRO_DE_CUSTO.xlsx` — descrição dos centros de custo (já traz a filial)
+   - `dados/CLASSE_DE_VALOR_*.xlsx` — descrição das classes de valor, uma tabela por
+     empresa. Como o arquivo não diz a filial, o gerador descobre sozinho qual tabela
+     pertence a cada filial pelos códigos que aparecem nos documentos, e mostra a
+     relação na tela ao publicar
 2. Instale as dependências uma única vez: `pip install pandas openpyxl`
 3. Rode `python gerar_dados.py`
 4. Faça commit e push. O site atualiza sozinho.
@@ -93,6 +98,12 @@ fornecedor, comprador e a data de emissão. A data aceita vários formatos: `10/
   vencidos há mais de 180 dias, itens sem ponto de pedido cadastrado, códigos com
   descrições divergentes e ponto de pedido sem lote econômico.
 - **Resumo** — rankings, evolução dia a dia e emissões por mês, filial a filial.
+
+## Solicitante da SC
+
+Se a exportação de solicitações tiver uma coluna com o solicitante (`Solicitante`,
+`Solicitado por` ou `Cod.Solicit`), ela aparece na ficha de cada solicitação. Sem a coluna,
+o campo mostra "não informado". No Protheus, é o campo `C1_SOLICIT` do browse MATA110.
 
 ## Nome do fornecedor
 

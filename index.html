@@ -366,6 +366,8 @@ tbody tr:last-child td{border-bottom:none}
   <div class="f"><label for="fGru">Grupo</label><select id="fGru"></select></div>
   <div class="f" id="wCmp"><label for="fCmp">Comprador</label><select id="fCmp"></select></div>
   <div class="f" id="wFor"><label for="fFor">Fornecedor</label><select id="fFor"></select></div>
+  <div class="f" id="wCC"><label for="fCC">Centro de custo</label><select id="fCC"></select></div>
+  <div class="f" id="wCL"><label for="fCL">Classe de valor</label><select id="fCL"></select></div>
   <div class="f" id="wDias"><label for="fSit">Situação</label><select id="fSit"></select></div>
   <div class="spacer"></div>
   <div class="f"><label>&nbsp;</label><button class="btn ghost" onclick="limpar()">Limpar filtros</button></div>
@@ -548,6 +550,9 @@ function filtrar(rows){
     if(fFil && r.filial!==fFil) return false;
     if(fGru && r.grupo!==fGru) return false;
     if(tab==='pc'){ if(fCmp && r.comprador!==fCmp) return false; if(fFor && r.forn!==fFor) return false; }
+    const fCC=document.getElementById('fCC').value, fCL=document.getElementById('fCL').value;
+    if(fCC && r.cc!==fCC) return false;
+    if(fCL && r.classe!==fCL) return false;
     if(q){
       const datas = r.emissao ? df(r.emissao)+' '+r.emissao.replace(/-/g,'/')+' '+df(r.emissao).slice(3) : '';
       const hay = soData((r.produto+' '+r.desc+' '+(r.pedido||'')+' '+(r.sc||'')+' '+
@@ -945,13 +950,16 @@ function setTab(t){
   document.getElementById('wCmp').style.display = t==='pc'?'':'none';
   document.getElementById('wFor').style.display = t==='pc'?'':'none';
   document.getElementById('wPP').style.display = t==='rp'?'none':'';
+  document.getElementById('wCC').style.display = t==='rp'?'none':'';
+  document.getElementById('wCL').style.display = t==='rp'?'none':'';
   if(lista) opts('fSit', SIT[t], null);
   render();
 }
 function toggleFaixa(k){ sel = sel===k?null:k; render(); }
 function ordena(k){ const s=sort[tab]; if(s.k===k) s.dir*=-1; else {s.k=k;s.dir=-1;} render(); }
 function limpar(){
-  ['q','fFil','fGru','fCmp','fFor'].forEach(i=>document.getElementById(i).value='');
+  ['q','fFil','fGru','fCmp','fFor','fCC','fCL'].forEach(i=>document.getElementById(i).value='');
+  popularContas();
   document.getElementById('fPP').value='0';
   document.getElementById('fSit').value='-999999'; sel=null; render();
 }
@@ -1416,12 +1424,36 @@ function popularFiltros(){
   opts('fGru',uniq(PC.concat(SC).concat(REP),r=>r.grupo).map(g=>[g,'Grupo '+g]),'Todos os grupos');
   opts('fCmp',uniq(PC,r=>r.comprador).map(c=>[c,c]),'Todos os compradores');
   opts('fFor',uniq(PC,r=>r.forn).map(c=>[c,c]),'Todos os fornecedores');
+  popularContas();
+}
+
+/* centro de custo e classe de valor mudam de descrição conforme a filial,
+   então a lista é refeita sempre que a filial muda */
+function popularContas(){
+  const fil = document.getElementById('fFil').value;
+  const base = PC.concat(SC).filter(r => !fil || r.filial === fil);
+  const monta = (campo, nome) => {
+    const m = new Map();
+    base.forEach(r => { if(r[campo] && !m.has(r[campo])) m.set(r[campo], nome(r)); });
+    const chave = ([cod,desc]) => desc ? desc : 'zzzz' + cod;   // sem descrição vai para o fim
+    return [...m].sort((a,b) => chave(a).localeCompare(chave(b), 'pt-BR'))
+                 .map(([cod,desc]) => [cod, desc ? cod + ' · ' + desc : cod]);
+  };
+  ['fCC','fCL'].forEach((id,i) => {
+    const el = document.getElementById(id), antes = el.value;
+    opts(id, monta(i ? 'classe' : 'cc', i ? nomeCL : nomeCC),
+         i ? 'Todas as classes de valor' : 'Todos os centros de custo');
+    if([...el.options].some(o => o.value === antes)) el.value = antes;
+  });
 }
 (function init(){
   aplicarTema(); carimbo(); popularFiltros();
-  ['q','fPP','fFil','fGru','fCmp','fFor','fSit'].forEach(i=>{
+  ['q','fPP','fFil','fGru','fCmp','fFor','fCC','fCL','fSit'].forEach(i=>{
     const el=document.getElementById(i);
-    el.addEventListener(i==='q'?'input':'change',()=>{sel=null;render();});
+    el.addEventListener(i==='q'?'input':'change',()=>{
+      if(i==='fFil') popularContas();
+      sel=null; render();
+    });
   });
   setTab('pc');
   ligarAtualizacao();
