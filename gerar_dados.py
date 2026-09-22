@@ -15,7 +15,7 @@ O script não altera o index.html: toda a lógica da tela fica lá, os dados fic
 
 import json
 import sys
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
 import pandas as pd
@@ -301,7 +301,7 @@ def gravar_resumo(saida):
         linhas.append("*Informações do pedido:*")
         for l in vencidos[:12]:
             emissao = date.fromisoformat(l[i["emissao"]]).strftime("%d/%m/%Y")
-            linhas.append(f"• Pedido {l[i['pedido']]} — {l[i['produto']]} — emissão {emissao}")
+            linhas.append(f"• Pedido {l[i['pedido']]} — {l[i['emp']]} — {l[i['produto']]} — emissão {emissao}")
             linhas.append("  " + l[i["desc"]])
             if l[i["comprador"]]:
                 linhas.append("  Comprador: " + l[i["comprador"]])
@@ -455,6 +455,7 @@ def main():
         "sc": solicitacoes,
         "parm": parm,
         "gerado": date.today().isoformat(),
+        "hora": datetime.now().strftime("%H:%M"),
         "npp": total_pp,
     }
 

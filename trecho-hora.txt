@@ -1,0 +1,40 @@
+HORÁRIO DA ATUALIZAÇÃO NO CABEÇALHO
+===================================
+
+São duas mudanças, uma em cada arquivo.
+
+1) gerar_dados.py — grava a hora junto com a data.
+
+   Procure a linha:
+
+       from datetime import date
+
+   Troque por:
+
+       from datetime import date, datetime
+
+   Depois procure:
+
+           "gerado": date.today().isoformat(),
+
+   e acrescente logo abaixo:
+
+           "hora": datetime.now().strftime("%H:%M"),
+
+2) index.html — mostra a hora no cabeçalho.
+
+   Procure:
+
+     document.getElementById('base').textContent = df(DADOS.gerado);
+
+   Troque por:
+
+     document.getElementById('base').textContent =
+       df(DADOS.gerado) + (DADOS.hora ? ' às ' + DADOS.hora : '');
+
+Resultado no cabeçalho:
+
+   Posição de 22 de setembro de 2026 · base de 22/09/2026 às 11:21
+
+Enquanto a base publicada for antiga, sem a hora, o cabeçalho mostra só a
+data, sem erro.

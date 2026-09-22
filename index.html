@@ -1404,7 +1404,8 @@ if(consultaEscuro && consultaEscuro.addEventListener){
 /* ---------- inicialização ---------- */
 function carimbo(){
   document.getElementById('hoje').textContent = hoje.toLocaleDateString('pt-BR',{day:'2-digit',month:'long',year:'numeric'});
-  document.getElementById('base').textContent = df(DADOS.gerado);
+  document.getElementById('base').textContent =
+    df(DADOS.gerado) + (DADOS.hora ? ' às ' + DADOS.hora : '');
   document.getElementById('npp').textContent = (DADOS.npp||0).toLocaleString('pt-BR');
   document.getElementById('versao').textContent = VERSAO_APP;
 }
