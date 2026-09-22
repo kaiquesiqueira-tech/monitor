@@ -1,0 +1,47 @@
+FILIAL NAS MENSAGENS DO WHATSAPP
+================================
+
+Se você preferir editar o index.html que já está na sua pasta, em vez de
+substituir o arquivo inteiro, são quatro linhas. Duas ficam na função
+resumoTexto (o botão da lista) e duas na função textoItem (o botão dentro
+da ficha do produto). Repare que em duas delas a variável é r e nas outras
+duas é x.
+
+1) PEDIDOS, botão da lista. Procure:
+
+        L.push('• Pedido ' + r.pedido + ' — ' + r.produto + ' — emissão ' + df(r.emissao));
+
+   Troque por:
+
+        L.push('• Pedido ' + r.pedido + ' — ' + r.emp + ' — ' + r.produto + ' — emissão ' + df(r.emissao));
+
+2) SOLICITAÇÕES, botão da lista. Procure:
+
+      L.push('• Solicitação ' + r.sc + ' — ' + r.produto + ' — emissão ' + df(r.emissao));
+
+   Troque por:
+
+      L.push('• Solicitação ' + r.sc + ' — ' + r.emp + ' — ' + r.produto + ' — emissão ' + df(r.emissao));
+
+3) PEDIDOS, botão da ficha. Procure:
+
+      L.push('• Pedido ' + x.pedido + ' — ' + x.produto + ' — emissão ' + df(x.emissao));
+
+   Troque por:
+
+      L.push('• Pedido ' + x.pedido + ' — ' + x.emp + ' — ' + x.produto + ' — emissão ' + df(x.emissao));
+
+4) SOLICITAÇÕES, botão da ficha. Procure:
+
+      L.push('• Solicitação ' + x.sc + ' — ' + x.produto + ' — emissão ' + df(x.emissao));
+
+   Troque por:
+
+      L.push('• Solicitação ' + x.sc + ' — ' + x.emp + ' — ' + x.produto + ' — emissão ' + df(x.emissao));
+
+Resultado:
+
+  *Informações do pedido:*
+  • Pedido 001396 — TGM — 040800013 — emissão 01/04/2020
+    ABRACADEIRA NYLON 23MM 1.3X4.7MM
+    Comprador: WALISSON.SANTOS

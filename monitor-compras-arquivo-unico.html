@@ -1220,7 +1220,7 @@ function resumoTexto(){
     if(top.length){
       L.push('*Informações do pedido:*');
       top.forEach(r=>{
-        L.push('• Pedido ' + r.pedido + ' — ' + r.produto + ' — emissão ' + df(r.emissao));
+        L.push('• Pedido ' + r.pedido + ' — ' + r.emp + ' — ' + r.produto + ' — emissão ' + df(r.emissao));
         L.push('  ' + r.desc);
         if(r.comprador) L.push('  Comprador: ' + r.comprador);
       });
@@ -1260,7 +1260,7 @@ function textoItem(){
   if(peds.length){
     L.push('*Informações do pedido:*');
     peds.forEach(x=>{
-      L.push('• Pedido ' + x.pedido + ' — ' + x.produto + ' — emissão ' + df(x.emissao));
+      L.push('• Pedido ' + x.pedido + ' — ' + x.emp + ' — ' + x.produto + ' — emissão ' + df(x.emissao));
       L.push('  ' + x.desc);
       if(x.comprador) L.push('  Comprador: ' + x.comprador);
     });
