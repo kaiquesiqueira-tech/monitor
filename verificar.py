@@ -26,6 +26,7 @@ from pathlib import Path
 BASE = Path(__file__).parent
 ENTRADA = BASE / "dados"
 ESTADO = BASE / ".estado_publicacao.json"
+PULSO = BASE / "pulso.json"
 LOG = BASE / "publicacao.log"
 
 INICIOS = ["mata121", "mata110", "PROD_EM_PP", "SALDO"]
@@ -64,6 +65,40 @@ def rodar(comando):
 
 
 GERADOS = ["dados.js", "historico.js"]
+PULSO_MINUTOS = 60      # de quanto em quanto tempo o batimento vai para o GitHub
+
+
+def bater_pulso(publicando):
+    """Registra que a verificação automática rodou. O arquivo é gravado em toda
+    passada, mas só sobe junto com uma publicação ou uma vez por hora — assim o
+    monitor consegue mostrar que a automação está viva sem encher o repositório."""
+    agora = datetime.now()
+    PULSO.write_text(json.dumps({
+        "verificado": agora.strftime("%Y-%m-%d %H:%M"),
+        "intervalo": 5,
+    }, ensure_ascii=False), encoding="utf-8")
+
+    ultimo = estado().get("pulso_enviado")
+    if publicando:
+        guardar_estado(pulso_enviado=agora.isoformat(timespec="minutes"))
+        return True
+    if ultimo:
+        try:
+            if (agora - datetime.fromisoformat(ultimo)).total_seconds() < PULSO_MINUTOS * 60:
+                return False
+        except ValueError:
+            pass
+
+    rodar("git add pulso.json")
+    if rodar("git diff --cached --quiet").returncode == 0:
+        return False
+    carimbo = agora.strftime("%d/%m/%Y %H:%M")
+    if rodar('git commit -m "pulso ' + carimbo + '"').returncode != 0:
+        return False
+    if rodar("git push").returncode != 0:
+        return False
+    guardar_estado(pulso_enviado=agora.isoformat(timespec="minutes"))
+    return True
 
 
 def conteudo_util():
@@ -90,7 +125,10 @@ def publicar(sempre=False):
     marca = conteudo_util()
     if sempre and marca == estado().get("conteudo"):
         rodar("git checkout -- " + " ".join(GERADOS))     # desfaz só a troca de horário
+        bater_pulso(publicando=False)
         return True
+
+    bater_pulso(publicando=True)
 
     rodar("git add -A")
     if rodar("git diff --cached --quiet").returncode == 0:

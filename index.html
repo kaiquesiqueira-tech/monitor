@@ -68,6 +68,10 @@ html[data-tema="escuro"] :focus-visible{outline-color:#8FD3B4}
 .bandfim{margin-left:auto;display:flex;align-items:center;gap:18px}
 .stamp{font-size:12.5px;opacity:.72;text-align:right;line-height:1.5}
 .stamp b{font-weight:600;opacity:1}
+.stamp .luz{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;vertical-align:1px}
+.stamp .luz.ok{background:#4FBF8B}
+.stamp .luz.velha{background:#D9A241}
+.stamp .luz.parada{background:#D06A5E}
 .tema{display:inline-flex;align-items:center;gap:7px;background:transparent;color:inherit;
   border:1px solid rgba(255,255,255,.22);border-radius:var(--r);padding:7px 12px;cursor:pointer;
   font-size:13px;transition:background .15s,border-color .15s;min-height:34px}
@@ -323,7 +327,8 @@ tbody tr:last-child td{border-bottom:none}
     <div class="bandfim">
       <div class="stamp">
         Posição de <b id="hoje"></b> · base de <span id="base"></span><br>
-        <span id="npp"></span> itens com ponto de pedido · <span id="versao"></span>
+        <span id="npp"></span> itens com ponto de pedido · <span id="versao"></span><br>
+        <span id="pulso"></span>
       </div>
       <button class="tema" id="btTema" onclick="trocarTema()" aria-pressed="false">
         <span id="temaIcone"></span><span id="temaTexto">Escuro</span>
@@ -1366,11 +1371,21 @@ async function verificarApp(){
   }catch(e){}
 }
 
+async function lerPulso(){
+  try{
+    const r = await fetch('pulso.json?v=' + Date.now(), {cache:'no-store'});
+    if(!r.ok) return;
+    const novo = await r.json();
+    if(novo && novo.verificado){ PULSO = novo; carimboPulso(); }
+  }catch(e){ /* base publicada sem o arquivo: o cabeçalho só não mostra a linha */ }
+}
+
 async function verificarBase(){
   if(!/^https?:/.test(location.protocol) || checando) return;
   checando = true;
   try{
     verificarApp();
+    lerPulso();
     const marca = await marcaRemota();
     if(marca){
       if(marcaBase === null) marcaBase = marca;
@@ -1382,6 +1397,7 @@ async function verificarBase(){
 
 function ligarAtualizacao(){
   verificarBase();
+  setInterval(carimboPulso, 30000);      // o "há X min" continua andando na tela
   setInterval(verificarBase, INTERVALO_BASE);
   document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) verificarBase(); });
   window.addEventListener('focus', verificarBase);
@@ -1410,13 +1426,45 @@ if(consultaEscuro && consultaEscuro.addEventListener){
 }
 
 /* ---------- inicialização ---------- */
+let PULSO = null;
+
+/* quanto tempo faz, em português curto */
+function desde(quando){
+  const min = Math.max(0, Math.round((Date.now() - quando.getTime())/60000));
+  if(min <= 1) return 'agora mesmo';
+  if(min < 60) return 'há ' + min + ' min';
+  const horas = Math.round(min/60);
+  if(horas < 24) return 'há ' + horas + (horas===1 ? ' hora' : ' horas');
+  const dias = Math.round(horas/24);
+  return 'há ' + dias + (dias===1 ? ' dia' : ' dias');
+}
+
 function carimbo(){
   document.getElementById('hoje').textContent = hoje.toLocaleDateString('pt-BR',{day:'2-digit',month:'long',year:'numeric'});
   document.getElementById('base').textContent =
     df(DADOS.gerado) + (DADOS.hora ? ' às ' + DADOS.hora : '');
+  carimboPulso();
   document.getElementById('npp').textContent = (DADOS.npp||0).toLocaleString('pt-BR');
   document.getElementById('versao').textContent = VERSAO_APP;
 }
+/* mostra se a publicação automática continua rodando */
+function carimboPulso(){
+  const alvo = document.getElementById('pulso');
+  if(!alvo) return;
+  if(!PULSO || !PULSO.verificado){ alvo.textContent = ''; return; }
+  const quando = new Date(PULSO.verificado.replace(' ', 'T'));
+  if(isNaN(quando)){ alvo.textContent = ''; return; }
+
+  const min = (Date.now() - quando.getTime()) / 60000;
+  const intervalo = PULSO.intervalo || 5;
+  const estado = min <= intervalo * 4 ? 'ok' : (min <= 360 ? 'velha' : 'parada');
+  const recado = { ok: 'publicação automática ativa', velha: 'sem verificar há um tempo',
+                   parada: 'publicação automática parada' }[estado];
+  alvo.innerHTML = `<span class="luz ${estado}"></span>${recado}, última ${desde(quando)}`;
+  alvo.title = `A cada ${intervalo} minutos o computador confere a pasta dados e publica se houver novidade.`+
+               `\nÚltima verificação: ${df(PULSO.verificado.slice(0,10))} às ${PULSO.verificado.slice(11)}`;
+}
+
 function popularFiltros(){
   const uniq=(arr,f)=>[...new Set(arr.map(f))].filter(Boolean).sort();
   const fil=new Map(); PC.concat(SC).forEach(r=>fil.set(r.filial,r.emp));
