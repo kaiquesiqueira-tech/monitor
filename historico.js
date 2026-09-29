@@ -1,1 +1,1 @@
-window.HISTORICO=[{"data":"2026-09-15","pedidos":312,"vencidos":284,"valor_vencido":479917.13,"solicitacoes":270,"paradas30":100,"abaixo_pp":363},{"data":"2026-09-29","pedidos":286,"vencidos":229,"valor_vencido":523620.41,"solicitacoes":266,"paradas30":133,"abaixo_pp":395}];
+window.HISTORICO=[{"data":"2026-09-15","pedidos":312,"vencidos":284,"valor_vencido":479917.13,"solicitacoes":270,"paradas30":100,"abaixo_pp":363},{"data":"2026-09-29","pedidos":286,"vencidos":229,"valor_vencido":523620.41,"solicitacoes":261,"paradas30":133,"abaixo_pp":395}];
