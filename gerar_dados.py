@@ -115,8 +115,10 @@ def inteiro(v):
 
 def ler_parametros_bruto():
     """Lê o SBZ e devolve os parâmetros de estoque por filial+produto."""
-    df = pd.read_excel(ARQ_PP, header=2)
-    df.columns = [str(c).strip() for c in df.columns]
+    df = abrir_planilha(ARQ_PP, ["Filial", "Codigo", "Ponto Pedido"], "ponto de pedido")
+    if df is None:
+        print("  ponto de pedido: seguindo sem ele; as abas de estoque ficam vazias.")
+        return {}, 0
     df = df.dropna(subset=["Codigo"]).copy()
     df["cod"] = df["Codigo"].apply(codigo)
     df["fil"] = df["Filial"].astype(int).astype(str).str.zfill(6)
@@ -149,14 +151,38 @@ def ler_parametros_bruto():
     return parm, total_pp
 
 
+
+def abrir_planilha(arq, obrigatorias, rotulo):
+    """Abre a planilha procurando a linha de cabeçalho, em vez de confiar numa
+    posição fixa. Devolve None e explica o motivo quando o arquivo não serve —
+    assim uma exportação fora do padrão não derruba a publicação inteira."""
+    try:
+        cru = pd.read_excel(arq, header=None, nrows=15)
+    except Exception as erro:
+        print(f"  {rotulo}: nao consegui abrir {arq.name} ({erro})")
+        return None
+
+    for i in range(len(cru)):
+        linha = [str(v).strip() for v in cru.iloc[i].tolist()]
+        if all(any(c == nome for c in linha) for nome in obrigatorias):
+            df = pd.read_excel(arq, header=i)
+            df.columns = [str(c).strip() for c in df.columns]
+            return df
+
+    achadas = [str(v).strip() for v in cru.iloc[min(2, len(cru) - 1)].tolist()
+               if str(v).strip() and str(v).strip() != "nan"]
+    print(f"  {rotulo}: {arq.name} nao tem as colunas {', '.join(obrigatorias)}.")
+    print(f"     colunas encontradas: {', '.join(achadas[:12]) or 'nenhuma'}")
+    return None
+
+
 def ler_centros_de_custo():
     """Descrição do centro de custo por filial. O arquivo já traz a coluna Filial,
     então a relação é direta."""
     nomes = {}
     for arq in ARQ_CCUSTO:
-        df = pd.read_excel(arq, header=1)
-        df.columns = [str(c).strip() for c in df.columns]
-        if "C Custo" not in df.columns:
+        df = abrir_planilha(arq, ["Filial", "C Custo"], "centro de custo")
+        if df is None:
             continue
         for _, r in df.dropna(subset=["C Custo"]).iterrows():
             fil = str(r["Filial"]).split("-")[0].strip().zfill(6)
@@ -173,8 +199,9 @@ def ler_tabelas_de_classe():
     reconhece mais códigos dos pedidos e solicitações dela."""
     tabelas = {}
     for arq in ARQ_CLASSE:
-        df = pd.read_excel(arq, header=1)
-        df.columns = [str(c).strip() for c in df.columns]
+        df = abrir_planilha(arq, ["Cod Cl Valor"], "classe de valor")
+        if df is None:
+            continue
         col_cod = next((c for c in df.columns if "Cod" in c and "Valor" in c), None)
         col_desc = next((c for c in df.columns if "Desc" in c), None)
         if not col_cod or not col_desc:
@@ -211,17 +238,36 @@ def ler_saldos():
     e cai para a soma de todos os armazéns quando o item não está no 01."""
     if not ARQ_SALDO:
         return {}, {}
+    # só nomes que são quantidade em estoque; colunas de valor ficam de fora de propósito
+    COLUNAS_SALDO = ["Saldo Atual", "Saldo Atu.", "Saldo Atu", "Qtd Atual",
+                     "Qtde Atual", "Quantidade Atual", "Saldo Fisico", "Saldo"]
     partes = []
     for arq in ARQ_SALDO:
-        df = pd.read_excel(arq, header=2)
-        df.columns = [str(c).strip() for c in df.columns]
+        df = abrir_planilha(arq, ["Filial", "Produto"], "saldo em estoque")
+        if df is None:
+            continue
+        col_saldo = next((c for c in COLUNAS_SALDO if c in df.columns), None)
+        if not col_saldo:
+            print(f"  saldo em estoque: {arq.name} sem coluna de saldo.")
+            print(f"     colunas: {', '.join(list(df.columns)[:12])}")
+            continue
+        if col_saldo != "Saldo Atual":
+            print(f"  saldo em estoque: usando a coluna '{col_saldo}' de {arq.name}")
+
         df = df.dropna(subset=["Produto"]).copy()
         df["fil"] = df["Filial"].astype(int).astype(str).str.zfill(6)
         df["cod"] = df["Produto"].apply(codigo)
-        df["arm"] = pd.to_numeric(df["Armazem"], errors="coerce").fillna(0).astype(int)
-        df["saldo"] = pd.to_numeric(df["Saldo Atual"], errors="coerce").fillna(0)
-        df["desc"] = df["Nome Cientif"].astype(str).str.strip()
+        df["arm"] = (pd.to_numeric(df["Armazem"], errors="coerce").fillna(0).astype(int)
+                     if "Armazem" in df.columns else 1)
+        df["saldo"] = pd.to_numeric(df[col_saldo], errors="coerce").fillna(0)
+        df["desc"] = (df["Nome Cientif"].astype(str).str.strip()
+                      if "Nome Cientif" in df.columns else "")
         partes.append(df[["fil", "cod", "arm", "saldo", "desc"]])
+
+    if not partes:
+        print("  saldo em estoque: nenhum arquivo aproveitado. A aba Reposicao fica vazia,")
+        print("     o resto do monitor e publicado normalmente.")
+        return {}, {}
     sb2 = pd.concat(partes, ignore_index=True)
 
     padrao = sb2[sb2["arm"] == 1].groupby(["fil", "cod"])["saldo"].sum()
@@ -316,8 +362,11 @@ def gravar_resumo(saida):
 
 def main():
     conferir_arquivos()
-    sc = pd.read_excel(ARQ_SC, header=1)
-    pc = pd.read_excel(ARQ_PC, header=1)
+    sc = abrir_planilha(ARQ_SC, ["Filial", "Numero da SC", "Produto"], "solicitacoes")
+    pc = abrir_planilha(ARQ_PC, ["Filial", "Numero", "Produto"], "pedidos")
+    if sc is None or pc is None:
+        print("Sem pedidos ou sem solicitacoes nao da para gerar a base. Confira a exportacao.")
+        sys.exit(1)
 
     usados = {codigo(x) for x in pc["Produto"]} | {codigo(x) for x in sc["Produto"]}
     parm_todo, total_pp = ler_parametros_bruto()
