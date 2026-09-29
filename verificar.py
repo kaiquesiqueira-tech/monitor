@@ -1,9 +1,12 @@
 """
 Verifica uma vez se a pasta 'dados' mudou e, se mudou, publica.
 
-Com a opção --sempre, gera e publica em toda passada, sem comparar nada — é o
-mesmo efeito de apertar o publicar.bat. Como o git só registra o que mudou de
-verdade, passadas sem novidade não geram commit.
+Com --loop SEGUNDOS, fica rodando pelo tempo indicado e confere a pasta de 5 em 5
+segundos. É assim que a tarefa agendada trabalha: o Windows a chama de minuto em
+minuto e cada chamada cobre o minuto inteiro, então a troca de arquivo é percebida
+em segundos. Se a execução morrer por qualquer motivo, a do minuto seguinte assume.
+
+Com --sempre, gera e publica sem comparar nada, como apertar o publicar.bat.
 
 Foi feito para o Agendador de Tarefas do Windows chamar de dois em dois minutos,
 sem janela aberta e sem ninguém apertar nada. Quem prefere acompanhar na tela
@@ -169,7 +172,33 @@ def guardar_estado(**campos):
         pass
 
 
+def opcao(nome, padrao):
+    """Lê --nome VALOR da linha de comando."""
+    if nome in sys.argv:
+        i = sys.argv.index(nome)
+        if i + 1 < len(sys.argv):
+            try:
+                return int(sys.argv[i + 1])
+            except ValueError:
+                pass
+    return padrao
+
+
 def main():
+    if "--loop" in sys.argv:
+        duracao = opcao("--loop", 55)
+        intervalo = opcao("--intervalo", 5)
+        fim = time.time() + duracao
+        while True:
+            uma_passada()
+            if time.time() + intervalo >= fim:
+                return
+            time.sleep(intervalo)
+
+    uma_passada()
+
+
+def uma_passada():
     sempre = "--sempre" in sys.argv
 
     atual = impressao_digital()

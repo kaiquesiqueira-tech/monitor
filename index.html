@@ -1323,7 +1323,9 @@ async function compartilhar(){
 /* ---------- base sempre atual ---------- */
 /* A cada poucos minutos o app pergunta ao servidor se o dados.js mudou.
    Se mudou, ele baixa a base nova e troca na tela, sem recarregar a página. */
-const INTERVALO_BASE = 2*60*1000;
+const INTERVALO_BASE = 5*1000;          // confere a base de 5 em 5 segundos
+const INTERVALO_APP = 60*1000;          // a versão do app, de minuto em minuto
+let ultimoApp = 0;
 const VERSAO_APP = 'app 15/09/2026';
 let marcaBase = null, checando = false;
 let marcaApp = null, appDiferente = 0;
@@ -1382,10 +1384,10 @@ async function lerPulso(){
 
 async function verificarBase(){
   if(!/^https?:/.test(location.protocol) || checando) return;
+  if(document.hidden) return;            // aba escondida não fica consultando à toa
   checando = true;
   try{
-    verificarApp();
-    lerPulso();
+    if(Date.now() - ultimoApp > INTERVALO_APP){ ultimoApp = Date.now(); verificarApp(); lerPulso(); }
     const marca = await marcaRemota();
     if(marca){
       if(marcaBase === null) marcaBase = marca;

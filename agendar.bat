@@ -4,7 +4,7 @@ pushd "%~dp0"
 
 echo.
 echo  == MONITOR PC E SC ALMOXARIFADO ==
-echo  Ligando a publicacao automatica de 5 em 5 minutos.
+echo  Ligando a vigia da pasta dados, conferindo de 5 em 5 segundos.
 echo.
 
 where pythonw >nul 2>&1
@@ -15,17 +15,21 @@ if errorlevel 1 (
 
 for /f "delims=" %%p in ('where pythonw') do set PYW=%%p
 
-schtasks /create /tn "Monitor PC e SC" /tr "\"%PYW%\" \"%~dp0verificar.py\" --sempre" /sc minute /mo 5 /f >nul
+schtasks /create /tn "Monitor PC e SC" /tr "\"%PYW%\" \"%~dp0verificar.py\" --loop 55 --intervalo 5" /sc minute /mo 1 /f >nul
 if errorlevel 1 goto erro
 
-echo  Pronto. De 5 em 5 minutos o computador faz sozinho o mesmo que o publicar.bat:
-echo  gera a base a partir da pasta dados e envia para o GitHub.
-echo  Nao abre janela nenhuma e nao precisa de clique.
+schtasks /run /tn "Monitor PC e SC" >nul 2>&1
+
+echo  Pronto. A pasta dados e conferida de 5 em 5 segundos, sem janela aberta.
+echo  Salvou a exportacao do Protheus, ele gera e envia para o GitHub sozinho.
 echo.
-echo  Passadas sem novidade nao geram commit, entao nao poluem o historico.
-echo  O que aconteceu em cada publicacao fica em publicacao.log.
+echo  O Windows chama a tarefa de minuto em minuto e cada chamada cobre o minuto
+echo  inteiro. Se uma execucao falhar, a do minuto seguinte assume.
 echo.
-echo  Para desligar: desagendar.bat
+echo  Gerar a base leva cerca de meio minuto por causa do arquivo de saldo, entao
+echo  do momento em que voce salva ate aparecer nos celulares passa cerca de um minuto.
+echo.
+echo  Acompanhe em publicacao.log. Para desligar: desagendar.bat
 goto fim
 
 :erro
