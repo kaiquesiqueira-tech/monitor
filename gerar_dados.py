@@ -59,6 +59,7 @@ ARQ_PP = achar("PROD_EM_PP")
 ARQ_SALDO = achar_todos("SALDO")
 ARQ_CCUSTO = achar_todos("CENTRO")
 ARQ_CLASSE = achar_todos("CLASSE")
+ARQ_SB1 = achar_todos("SB1")
 
 
 def conferir_arquivos():
@@ -174,6 +175,63 @@ def abrir_planilha(arq, obrigatorias, rotulo):
     print(f"  {rotulo}: {arq.name} nao tem as colunas {', '.join(obrigatorias)}.")
     print(f"     colunas encontradas: {', '.join(achadas[:12]) or 'nenhuma'}")
     return None
+
+
+def ler_tipos(usados):
+    """Tipo do produto (MC, ME, EP, SV...) a partir do SB1. O arquivo tem 44 mil linhas
+    e 226 colunas, então é lido direto com openpyxl, em modo leitura, pegando só as
+    três colunas que interessam — assim leva segundos em vez de quase um minuto.
+    A chave é o grupo de empresas (02, 10) mais o código, porque o mesmo código pode
+    ter tipo diferente em cada grupo."""
+    if not ARQ_SB1:
+        return {}
+    try:
+        import openpyxl
+    except ImportError:
+        print("  tipo do produto: openpyxl nao instalado; pulando o SB1")
+        return {}
+
+    tipos = {}
+    for arq in ARQ_SB1:
+        try:
+            wb = openpyxl.load_workbook(arq, read_only=True, data_only=True)
+        except Exception as erro:
+            print(f"  tipo do produto: nao consegui abrir {arq.name} ({erro})")
+            continue
+        ws = wb[wb.sheetnames[0]]
+        colunas = None
+        for linha in ws.iter_rows(values_only=True):
+            if colunas is None:
+                nomes = [str(v).strip() if v is not None else "" for v in linha]
+                if "Codigo" in nomes and "Tipo" in nomes and "Filial" in nomes:
+                    colunas = {n: nomes.index(n) for n in ("Filial", "Tipo", "Codigo")}
+                continue
+            bruto = linha[colunas["Codigo"]]
+            if bruto is None:
+                continue
+            cod = codigo(bruto)
+            if cod not in usados:
+                continue
+            tipo = str(linha[colunas["Tipo"]] or "").strip()
+            if not tipo:
+                continue
+            fil = str(linha[colunas["Filial"]] or "").strip()
+            try:
+                fil = str(int(float(fil))).zfill(2)
+            except ValueError:
+                fil = fil.zfill(2)
+            tipos[fil + "|" + cod] = tipo
+        wb.close()
+        if colunas is None:
+            print(f"  tipo do produto: {arq.name} sem as colunas Filial, Tipo e Codigo")
+
+    if tipos:
+        contagem = {}
+        for t in tipos.values():
+            contagem[t] = contagem.get(t, 0) + 1
+        resumo = ", ".join(f"{t} {n}" for t, n in sorted(contagem.items(), key=lambda x: -x[1])[:8])
+        print(f"  tipo do produto: {len(tipos)} itens classificados ({resumo})")
+    return tipos
 
 
 def ler_centros_de_custo():
@@ -478,6 +536,7 @@ def main():
     for fil in usos:
         usos[fil].discard("")
 
+    tipos = ler_tipos(usados)
     nomes_cc = ler_centros_de_custo()
     nomes_cl = relacionar_classes(ler_tabelas_de_classe(), usos)
 
@@ -497,6 +556,7 @@ def main():
         "parm_cols": ["pp", "lote", "emax", "seg", "emb", "ultpreco",
                       "ultcompra", "consini", "dtincl", "armazem", "saldo"],
         "rep_cols": ["filial", "emp", "produto", "desc", "pp", "lote", "saldo"],
+        "tipos": tipos,
         "ccdesc": cc_desc,
         "cldesc": cl_desc,
         "rep": reposicao,

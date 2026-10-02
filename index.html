@@ -372,7 +372,7 @@ tbody tr:last-child td{border-bottom:none}
   <div class="f" id="wCmp"><label for="fCmp">Comprador</label><select id="fCmp"></select></div>
   <div class="f" id="wFor"><label for="fFor">Fornecedor</label><select id="fFor"></select></div>
   <div class="f" id="wCC"><label for="fCC">Centro de custo</label><select id="fCC"></select></div>
-  <div class="f" id="wCL"><label for="fCL">Classe de valor</label><select id="fCL"></select></div>
+  <div class="f" id="wTP"><label for="fTP">Tipo do produto</label><select id="fTP"></select></div>  <div class="f" id="wCL"><label for="fCL">Classe de valor</label><select id="fCL"></select></div>
   <div class="f" id="wDias"><label for="fSit">Situação</label><select id="fSit"></select></div>
   <div class="spacer"></div>
   <div class="f"><label>&nbsp;</label><button class="btn ghost" onclick="limpar()">Limpar filtros</button></div>
@@ -481,6 +481,8 @@ const FX = {
       {k:'c',l:'91 a 180 dias',min:91,max:180,c:'var(--s3)'},
       {k:'d',l:'mais de 180 dias',min:181,max:1e9,c:'var(--s4)'}]
 };
+/* tipo do produto vem do SB1, por grupo de empresas (02, 10) + código */
+const tipoDe = r => (DADOS.tipos||{})[r.filial.slice(0,2)+'|'+r.produto] || '';
 const nomeCC = r => (DADOS.ccdesc||{})[r.filial+'|'+r.cc] || '';
 const nomeCL = r => (DADOS.cldesc||{})[r.filial+'|'+r.classe] || '';
 /* se a base foi publicada sem as tabelas de descrição, avisa em vez de só mostrar o código */
@@ -558,6 +560,8 @@ function filtrar(rows){
     const fCC=document.getElementById('fCC').value, fCL=document.getElementById('fCL').value;
     if(fCC && r.cc!==fCC) return false;
     if(fCL && r.classe!==fCL) return false;
+    const fTP=document.getElementById('fTP').value;
+    if(fTP && tipoDe(r)!==fTP) return false;
     if(q){
       const datas = r.emissao ? df(r.emissao)+' '+r.emissao.replace(/-/g,'/')+' '+df(r.emissao).slice(3) : '';
       const hay = soData((r.produto+' '+r.desc+' '+(r.pedido||'')+' '+(r.sc||'')+' '+
@@ -956,6 +960,7 @@ function setTab(t){
   document.getElementById('wFor').style.display = t==='pc'?'':'none';
   document.getElementById('wPP').style.display = t==='rp'?'none':'';
   document.getElementById('wCC').style.display = t==='rp'?'none':'';
+  document.getElementById('wTP').style.display = '';
   document.getElementById('wCL').style.display = t==='rp'?'none':'';
   if(lista) opts('fSit', SIT[t], null);
   render();
@@ -963,7 +968,7 @@ function setTab(t){
 function toggleFaixa(k){ sel = sel===k?null:k; render(); }
 function ordena(k){ const s=sort[tab]; if(s.k===k) s.dir*=-1; else {s.k=k;s.dir=-1;} render(); }
 function limpar(){
-  ['q','fFil','fGru','fCmp','fFor','fCC','fCL'].forEach(i=>document.getElementById(i).value='');
+  ['q','fFil','fGru','fCmp','fFor','fCC','fCL','fTP'].forEach(i=>document.getElementById(i).value='');
   popularContas();
   document.getElementById('fPP').value='0';
   document.getElementById('fSit').value='-999999'; sel=null; render();
@@ -977,17 +982,17 @@ function exportar(devolver){
   const rows=ordenar(filtrar(baseRows()));
   const MODELO = {
     pc:{ aba:'Pedidos de compra',
-      cab:['Filial','Empresa','Pedido','Produto','Descrição','Quantidade','UM','Preço unit.','Valor total','Emissão','Entrega','Dias de atraso','Ponto de pedido','Lote econômico','Fornecedor','Comprador','SC origem','Grupo','Centro de custo','Centro de custo — descrição','Classe de valor','Classe de valor — descrição'],
-      larg:[9,11,10,12,46,11,6,12,13,11,11,13,14,14,22,18,11,8,14,30,14,30],
-      lin:r=>[r.filial,r.emp,r.pedido,r.produto,r.desc,r.qtd,r.um,r.preco,Number(r.valor.toFixed(2)),r.emissao,r.entrega,r.atraso,r.ppq,r.lote,r.fornnome||r.forn,r.comprador,r.sc,r.grupo,r.cc,nomeCC(r),r.classe,nomeCL(r)] },
+      cab:['Filial','Empresa','Pedido','Produto','Descrição','Quantidade','UM','Preço unit.','Valor total','Emissão','Entrega','Dias de atraso','Ponto de pedido','Lote econômico','Fornecedor','Comprador','SC origem','Grupo','Tipo','Centro de custo','Centro de custo — descrição','Classe de valor','Classe de valor — descrição'],
+      larg:[9,11,10,12,46,11,6,12,13,11,11,13,14,14,22,18,11,8,8,14,30,14,30],
+      lin:r=>[r.filial,r.emp,r.pedido,r.produto,r.desc,r.qtd,r.um,r.preco,Number(r.valor.toFixed(2)),r.emissao,r.entrega,r.atraso,r.ppq,r.lote,r.fornnome||r.forn,r.comprador,r.sc,r.grupo,tipoDe(r),r.cc,nomeCC(r),r.classe,nomeCL(r)] },
     sc:{ aba:'Solicitacoes de compra',
-      cab:['Filial','Empresa','Solicitação','Item','Produto','Descrição','Quantidade','UM','Emissão','Dias parada','Ponto de pedido','Lote econômico','Grupo','Centro de custo','Centro de custo — descrição','Classe de valor','Classe de valor — descrição','Solicitante'],
-      larg:[9,11,12,7,12,46,11,6,11,11,14,14,8,14,30,14,30,16],
-      lin:r=>[r.filial,r.emp,r.sc,r.item,r.produto,r.desc,r.qtd,r.um,r.emissao,r.idade,r.ppq,r.lote,r.grupo,r.cc,nomeCC(r),r.classe,nomeCL(r),r.solicitante] },
+      cab:['Filial','Empresa','Solicitação','Item','Produto','Descrição','Quantidade','UM','Emissão','Dias parada','Ponto de pedido','Lote econômico','Grupo','Tipo','Centro de custo','Centro de custo — descrição','Classe de valor','Classe de valor — descrição','Solicitante'],
+      larg:[9,11,12,7,12,46,11,6,11,11,14,14,8,8,14,30,14,30,16],
+      lin:r=>[r.filial,r.emp,r.sc,r.item,r.produto,r.desc,r.qtd,r.um,r.emissao,r.idade,r.ppq,r.lote,r.grupo,tipoDe(r),r.cc,nomeCC(r),r.classe,nomeCL(r),r.solicitante] },
     rp:{ aba:'Reposicao',
-      cab:['Filial','Empresa','Produto','Descrição','Saldo atual','Ponto de pedido','Falta','Em pedido','Em solicitação','Lote econômico','Situação','Grupo'],
-      larg:[9,11,12,46,12,15,11,11,14,15,26,8],
-      lin:r=>[r.filial,r.emp,r.produto,r.desc,r.saldo,r.pp,r.falta,r.emPedido,r.emSC,r.lote,faixa(r.risco).l,r.grupo] }
+      cab:['Filial','Empresa','Produto','Descrição','Saldo atual','Ponto de pedido','Falta','Em pedido','Em solicitação','Lote econômico','Situação','Grupo','Tipo'],
+      larg:[9,11,12,46,12,15,11,11,14,15,26,8,8],
+      lin:r=>[r.filial,r.emp,r.produto,r.desc,r.saldo,r.pp,r.falta,r.emPedido,r.emSC,r.lote,faixa(r.risco).l,r.grupo,tipoDe(r)] }
   };
   const M = MODELO[tab] || MODELO.pc;
   const cab = M.cab, larg = M.larg, lin = M.lin, aba = M.aba;
@@ -1084,7 +1089,8 @@ function abrir(t,i,voltando){
   btVoltar.style.display = pilhaFicha.length ? '' : 'none';
   document.getElementById('dTitulo').textContent=r.desc;
   document.getElementById('dSub').textContent =
-    [cod, 'grupo ' + r.grupo, r.um, emp + ' (' + fl + ')'].filter(Boolean).join(' · ');
+    [cod, 'grupo ' + r.grupo, tipoDe(r) ? 'tipo ' + tipoDe(r) : '', r.um,
+     emp + ' (' + fl + ')'].filter(Boolean).join(' · ');
 
   const emPed=peds.filter(x=>x.filial===fl), emSol=sols.filter(x=>x.filial===fl);
   const qPed=emPed.reduce((s,x)=>s+x.qtd,0), qSol=emSol.reduce((s,x)=>s+x.qtd,0);
@@ -1474,6 +1480,10 @@ function popularFiltros(){
   opts('fGru',uniq(PC.concat(SC).concat(REP),r=>r.grupo).map(g=>[g,'Grupo '+g]),'Todos os grupos');
   opts('fCmp',uniq(PC,r=>r.comprador).map(c=>[c,c]),'Todos os compradores');
   opts('fFor',uniq(PC,r=>r.forn).map(c=>[c,c]),'Todos os fornecedores');
+  const tipos = {};
+  PC.concat(SC).concat(REP).forEach(r=>{ const t=tipoDe(r); if(t) tipos[t]=(tipos[t]||0)+1; });
+  opts('fTP', Object.entries(tipos).sort((a,b)=>b[1]-a[1]).map(([t,n])=>[t, t+' · '+n+' linhas']),
+       'Todos os tipos');
   popularContas();
 }
 
@@ -1498,7 +1508,7 @@ function popularContas(){
 }
 (function init(){
   aplicarTema(); carimbo(); popularFiltros();
-  ['q','fPP','fFil','fGru','fCmp','fFor','fCC','fCL','fSit'].forEach(i=>{
+  ['q','fPP','fFil','fGru','fCmp','fFor','fCC','fCL','fTP','fSit'].forEach(i=>{
     const el=document.getElementById(i);
     el.addEventListener(i==='q'?'input':'change',()=>{
       if(i==='fFil') popularContas();
