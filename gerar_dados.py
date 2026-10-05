@@ -440,20 +440,32 @@ def main():
     parm = {c: v for c, v in parm_todo.items()
             if c.split("|")[1] in usados or c in abaixo}
 
+    # Cadastro com ponto de pedido zerado não conta como ponto de pedido: o item existe
+    # no SBZ, mas sem nível de reposição definido. Entra como "não tem".
+    com_nivel = {c: v for c, v in parm.items() if v[0] > 0}
+
     # melhor parâmetro do produto em qualquer filial, usado quando falta cadastro na filial da linha
     por_codigo = {}
-    for chave, valor in parm.items():
+    for chave, valor in com_nivel.items():
         cod = chave.split("|")[1]
         if cod not in por_codigo or valor[0] > por_codigo[cod][0]:
             por_codigo[cod] = valor
 
+    zerados = len(parm) - len(com_nivel)
+    if zerados:
+        print(f"  {zerados} cadastros com ponto de pedido zerado tratados como sem ponto de pedido")
+
     def situacao(fil, cod):
         """2 = tem ponto de pedido na filial, 1 = em outra filial, 0 = não tem."""
-        if fil + "|" + cod in parm:
-            return 2, parm[fil + "|" + cod]
+        if fil + "|" + cod in com_nivel:
+            return 2, com_nivel[fil + "|" + cod]
         if cod in por_codigo:
             return 1, por_codigo[cod]
-        return 0, [0, 0, 0, 0, 0, 0, "", "", "", ""]
+        vazio = [0, 0, 0, 0, 0, 0, "", "", "", ""]
+        if fil + "|" + cod in parm:          # existe no SBZ, porém sem nível: mantém o saldo
+            vazio = list(parm[fil + "|" + cod])
+            vazio[0] = 0
+        return 0, vazio
 
     col_nome = next((c for c in ("Nome Fornecedor", "Nome Fornec", "Razao Social",
                                  "Nome do Fornecedor", "Fornecedor Nome", "Nome")

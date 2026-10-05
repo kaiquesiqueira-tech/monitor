@@ -539,7 +539,7 @@ const COLS={
 };
 
 function escopo(){ return +document.getElementById('fPP').value; }
-function nopp(r){ return r.pp >= escopo(); }
+function nopp(r){ const e = escopo(); return e === 0 || (r.pp >= e && r.ppq > 0); }
 function baseRows(){
   const min = +document.getElementById('fSit').value;
   if(tab==='rp') return REP.filter(r=>r.risco>=min);
