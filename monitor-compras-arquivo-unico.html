@@ -26,7 +26,8 @@
   --ink:#161A17; --muted:#6B7268; --line:#CFD3C9; --line2:#E7E9E2;
   --s0:#2F6B54; --s1:#4E7183; --s2:#B07D1F; --s3:#AF5129; --s4:#762824;
   --go:#1D4A3D; --btnInk:#FFFFFF; --segInk:#FFFFFF; --bandInk:#F0F2EC;
-  --sombra:0 1px 2px rgba(22,26,23,.06);
+  --sombra:0 1px 2px rgba(22,26,23,.05), 0 6px 18px -12px rgba(22,26,23,.22);
+  --brilho:inset 0 1px 0 rgba(255,255,255,.6);
   --sombraF:-18px 0 50px rgba(22,26,23,.18);
   --veu:rgba(22,26,23,.42);
   --r:3px;
@@ -58,6 +59,8 @@ html[data-tema="escuro"] :focus-visible{outline-color:#8FD3B4}
 .cond{font-family:"Barlow Condensed","IBM Plex Sans",Arial Narrow,sans-serif;font-weight:600;letter-spacing:.01em}
 
 /* ---------- faixa de comando ---------- */
+.fita{position:sticky;top:0;z-index:70;display:flex;height:4px;background:var(--line);overflow:hidden}
+.fita i{display:block;height:100%;transition:flex-grow .45s cubic-bezier(.22,.61,.36,1)}
 .band{background:var(--band);color:var(--bandInk)}
 .band .inner{max-width:1340px;margin:0 auto;padding:14px 20px;
   display:flex;align-items:center;gap:20px;flex-wrap:wrap}
@@ -82,7 +85,7 @@ html[data-tema="escuro"] :focus-visible{outline-color:#8FD3B4}
 
 /* ---------- leitura principal ---------- */
 .hero{margin:0 0 28px}
-.painel{background:var(--panel);border:1px solid var(--line);box-shadow:var(--sombra);
+.painel{background:var(--panel);border:1px solid var(--line);box-shadow:var(--sombra),var(--brilho);
   padding:26px 26px 0;overflow:hidden;animation:entra .45s cubic-bezier(.22,.61,.36,1) both}
 @keyframes entra{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 .leitura{display:flex;align-items:baseline;gap:20px;flex-wrap:wrap;margin-bottom:22px}
@@ -148,15 +151,17 @@ select:hover,input:hover{border-color:var(--muted)}
 input[type=search]{min-width:230px}
 .spacer{flex:1}
 .btn{background:var(--go);color:var(--btnInk);border:none;padding:9px 15px;border-radius:var(--r);
-  cursor:pointer;font-size:14px;min-height:36px;transition:filter .15s}
-.btn:hover{filter:brightness(1.12)}
+  cursor:pointer;font-size:14px;min-height:36px;box-shadow:var(--sombra);
+  transition:filter .15s,transform .12s,box-shadow .12s}
+.btn:hover{filter:brightness(1.1);transform:translateY(-1px)}
+.btn:active{transform:none;box-shadow:none}
 .btn.ghost{background:none;color:var(--go);border:1px solid var(--line)}
 .btn.ghost:hover{border-color:var(--go);filter:none}
 .btn.zap{display:inline-flex;align-items:center;justify-content:center;gap:7px}
 .btn.zap svg{width:15px;height:15px;flex:0 0 auto}
 
 /* ---------- tabela ---------- */
-.tablecard{background:var(--panel);border:1px solid var(--line);overflow:auto;max-height:74vh;box-shadow:var(--sombra)}
+.tablecard{background:var(--panel);border:1px solid var(--line);overflow:auto;max-height:74vh;box-shadow:var(--sombra),var(--brilho)}
 table{border-collapse:collapse;width:100%;font-size:14px}
 thead th{position:sticky;top:0;background:var(--panel);z-index:2;text-align:left;
   font-size:12px;color:var(--muted);padding:0;border-bottom:1px solid var(--line);white-space:nowrap}
@@ -173,15 +178,19 @@ tbody tr:last-child td{border-bottom:none}
 tbody tr:hover .sev{width:7px}
 .desc{font-size:14px;line-height:1.35;font-weight:500}
 .code{color:var(--muted);font-size:12px}
-.dias{font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums}
+.dias{font-family:"Barlow Condensed","IBM Plex Sans",sans-serif;font-weight:700;font-size:17px;
+  white-space:nowrap;font-variant-numeric:tabular-nums;letter-spacing:.01em}
 .empty{padding:52px 20px;text-align:center;color:var(--muted)}
 .empty b{display:block;color:var(--ink);font-size:17px;font-weight:600;margin-bottom:6px}
 .foot{display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;padding:12px 2px;font-size:13px;color:var(--muted)}
 
 /* ---------- resumo ---------- */
 .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:16px;margin-top:4px}
-.card{background:var(--panel);border:1px solid var(--line);padding:18px 20px;box-shadow:var(--sombra)}
-.card h3{margin:0 0 4px;font-size:15px;font-weight:600;letter-spacing:-.005em}
+.card{background:var(--panel);border:1px solid var(--line);padding:18px 20px;box-shadow:var(--sombra),var(--brilho)}
+.card h3{margin:0 0 4px;font-size:15px;font-weight:600;letter-spacing:-.005em;
+  padding-top:11px;position:relative}
+.card h3::before{content:"";position:absolute;top:0;left:0;width:26px;height:3px;background:var(--s3);border-radius:2px}
+.graficos .card h3::before{background:var(--s1)}
 .card{transition:border-color .15s}
 .card:hover{border-color:var(--muted)}
 .secao{font-family:"Barlow Condensed","IBM Plex Sans",sans-serif;font-size:22px;font-weight:600;
@@ -242,6 +251,7 @@ tbody tr:hover .sev{width:7px}
   transform:translateX(102%);transition:transform .24s cubic-bezier(.22,.61,.36,1);overflow:auto;overscroll-behavior:contain}
 #drawer.on{transform:none}
 .dhead{position:sticky;top:0;background:var(--panel);border-bottom:1px solid var(--line);
+  border-top:4px solid var(--corItem,transparent);
   padding:18px 22px 14px;display:flex;gap:14px;align-items:flex-start;z-index:2}
 .dhead h2{margin:0;font-size:19px;font-weight:600;line-height:1.25}
 .dhead .code{display:block;margin-top:6px}
@@ -349,6 +359,7 @@ tbody tr:hover .sev{width:7px}
 }
 </style>
 
+<div class="fita" id="fita" aria-hidden="true"></div>
 <header class="band">
   <div class="inner">
     <div class="marca">
@@ -783,6 +794,13 @@ function renderHero(rows){
   document.getElementById('dica').textContent = tab==='rp'
     ? 'Cada faixa mostra se a falta já está coberta por pedido ou solicitação. Clique para filtrar a lista.'
     : 'Cada faixa é um intervalo de atraso. Clique para filtrar a lista.';
+  /* a mesma distribuição vira uma fita fina no alto da janela */
+  const fita = document.getElementById('fita');
+  if(fita) fita.innerHTML = faixas().map(f=>{
+    const n = all.filter(r=>{const d=vf(r);return d>=f.min&&d<=f.max;}).length;
+    return `<i style="background:${f.c};flex:${n} 1 0"></i>`;
+  }).join('');
+
   document.getElementById('strip').innerHTML = faixas().map(f=>{
     const n = all.filter(r=>{const d=vf(r);return d>=f.min&&d<=f.max;}).length;
     return `<button class="seg ${n?'':'z'}" style="background:${f.c};flex:${n} 1 0" aria-pressed="${sel===f.k}"
@@ -1205,6 +1223,7 @@ function abrir(t,i,voltando){
 
   const btVoltar = document.getElementById('dVoltar');
   btVoltar.style.display = pilhaFicha.length ? '' : 'none';
+  document.getElementById('drawer').style.setProperty('--corItem', faixa(vf(r)).c);
   document.getElementById('dTitulo').textContent=r.desc;
   document.getElementById('dSub').textContent =
     [cod, 'grupo ' + r.grupo, tipoDe(r) ? 'tipo ' + tipoDe(r) : '', r.um,
