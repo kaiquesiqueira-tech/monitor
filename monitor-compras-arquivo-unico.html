@@ -117,9 +117,28 @@ nav.tabs{display:flex;gap:2px;flex-wrap:wrap;align-items:flex-end}
 .tab .c{color:var(--muted);font-weight:400;font-size:13px;margin-left:3px}
 
 /* ---------- filtros ---------- */
-.filters{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:end;
-  padding:16px 18px;background:var(--panel);border:1px solid var(--line);
+.filters{padding:16px 18px;background:var(--panel);border:1px solid var(--line);
   box-shadow:var(--sombra);margin-bottom:18px;position:relative;z-index:1}
+.linha1{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:end}
+.busca{flex:1 1 260px;min-width:0}
+.busca input{width:100%}
+.avancados{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px 14px;
+  margin-top:16px;padding-top:16px;border-top:1px solid var(--line2)}
+.avancados[hidden]{display:none}
+.btn.mais{display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
+.btn.mais .selo{display:none;background:var(--go);color:var(--btnInk);border-radius:9px;
+  min-width:18px;height:18px;padding:0 5px;font-size:11.5px;line-height:18px;text-align:center;font-weight:600}
+.btn.mais .selo.on{display:inline-block}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.chips:empty{display:none}
+.chip{display:inline-flex;align-items:center;gap:7px;background:var(--panel2);border:1px solid var(--line);
+  border-radius:14px;padding:5px 7px 5px 12px;font-size:12.5px;color:var(--ink);max-width:100%}
+.chip b{font-weight:500;color:var(--muted)}
+.chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chip button{background:none;border:none;cursor:pointer;color:var(--muted);font-size:15px;
+  line-height:1;padding:0 3px;border-radius:50%}
+.chip button:hover{color:var(--s4)}
+.chip.tudo{background:none;border-style:dashed;padding:5px 12px;color:var(--go);cursor:pointer}
 .f{display:flex;flex-direction:column;gap:4px}
 .f label{font-size:11.5px;color:var(--muted)}
 select,input[type=search],input[type=number]{
@@ -150,7 +169,8 @@ tbody tr{cursor:pointer;transition:background .12s}
 tbody tr:hover{background:var(--panel2)}
 tbody tr:last-child td{border-bottom:none}
 .num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
-.sev{width:4px;padding:0!important;border-bottom:1px solid var(--line2)}
+.sev{width:5px;padding:0!important;border-bottom:1px solid var(--line2)}
+tbody tr:hover .sev{width:7px}
 .desc{font-size:14px;line-height:1.35;font-weight:500}
 .code{color:var(--muted);font-size:12px}
 .dias{font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums}
@@ -291,11 +311,14 @@ tbody tr:last-child td{border-bottom:none}
   nav.tabs{overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch;scrollbar-width:none}
   nav.tabs::-webkit-scrollbar{display:none}
   .tab{white-space:nowrap;padding:12px 14px}
-  .filters{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:14px}
-  .filters .f:first-child{grid-column:1/-1}
+  .filters{padding:14px}
+  .linha1{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .linha1 .busca{grid-column:1/-1}
+  .avancados{grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;padding-top:14px}
   .filters .f{min-width:0}
   .filters .spacer{display:none}
   .filters select,.filters input{width:100%;min-height:44px}
+  .chip{font-size:12px}
   .btn{width:100%;min-height:44px}
   .dhead{padding:15px 16px 12px}
   .dbody{padding:0 16px 32px}
@@ -369,25 +392,36 @@ tbody tr:last-child td{border-bottom:none}
 </nav>
 
 <div class="filters" id="filters">
-  <div class="f"><label for="q">Buscar</label><input type="search" id="q" placeholder="produto, descrição, pedido, SC, data de emissão…"></div>
-  <div class="f" id="wPP"><label for="fPP">Itens</label><select id="fPP">
-      <option value="0" selected>Todos os itens</option>
-      <option value="2">Com ponto de pedido na filial</option>
-      <option value="1">Com ponto de pedido em qualquer filial</option>
-    </select></div>
-  <div class="f"><label for="fFil">Filial</label><select id="fFil"></select></div>
-  <div class="f"><label for="fGru">Grupo</label><select id="fGru"></select></div>
-  <div class="f" id="wCmp"><label for="fCmp">Comprador</label><select id="fCmp"></select></div>
-  <div class="f" id="wFor"><label for="fFor">Fornecedor</label><select id="fFor"></select></div>
-  <div class="f" id="wCC"><label for="fCC">Centro de custo</label><select id="fCC"></select></div>
-  <div class="f" id="wTP"><label for="fTP">Tipo do produto</label><select id="fTP"></select></div>  <div class="f" id="wCL"><label for="fCL">Classe de valor</label><select id="fCL"></select></div>
-  <div class="f" id="wDias"><label for="fSit">Situação</label><select id="fSit"></select></div>
-  <div class="spacer"></div>
-  <div class="f"><label>&nbsp;</label><button class="btn ghost" onclick="limpar()">Limpar filtros</button></div>
-  <div class="f"><label>&nbsp;</label><button class="btn" onclick="exportar()">Baixar Excel</button></div>
-  <div class="f"><label>&nbsp;</label><button class="btn zap" onclick="compartilhar()" id="btZap">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-12.3 7.4L3 20.5l1.7-5.5A8.4 8.4 0 1 1 21 11.5z"/></svg>
-    Enviar no WhatsApp</button></div>
+  <div class="linha1">
+    <div class="f busca"><label for="q">Buscar</label>
+      <input type="search" id="q" placeholder="produto, descrição, pedido, SC, data de emissão…"></div>
+    <div class="f"><label for="fFil">Filial</label><select id="fFil"></select></div>
+    <div class="f" id="wDias"><label for="fSit">Situação</label><select id="fSit"></select></div>
+    <div class="f"><label>&nbsp;</label>
+      <button class="btn ghost mais" id="btMais" onclick="alternarFiltros()" aria-expanded="false">
+        Mais filtros<span class="selo" id="qtdFiltros"></span></button></div>
+    <div class="spacer"></div>
+    <div class="f"><label>&nbsp;</label><button class="btn" onclick="exportar()">Baixar Excel</button></div>
+    <div class="f"><label>&nbsp;</label><button class="btn zap" onclick="compartilhar()" id="btZap">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-12.3 7.4L3 20.5l1.7-5.5A8.4 8.4 0 1 1 21 11.5z"/></svg>
+      Enviar no WhatsApp</button></div>
+  </div>
+
+  <div class="avancados" id="avancados" hidden>
+    <div class="f" id="wPP"><label for="fPP">Itens</label><select id="fPP">
+        <option value="0" selected>Todos os itens</option>
+        <option value="2">Com ponto de pedido na filial</option>
+        <option value="1">Com ponto de pedido em qualquer filial</option>
+      </select></div>
+    <div class="f" id="wTP"><label for="fTP">Tipo do produto</label><select id="fTP"></select></div>
+    <div class="f"><label for="fGru">Grupo</label><select id="fGru"></select></div>
+    <div class="f" id="wCmp"><label for="fCmp">Comprador</label><select id="fCmp"></select></div>
+    <div class="f" id="wFor"><label for="fFor">Fornecedor</label><select id="fFor"></select></div>
+    <div class="f" id="wCC"><label for="fCC">Centro de custo</label><select id="fCC"></select></div>
+    <div class="f" id="wCL"><label for="fCL">Classe de valor</label><select id="fCL"></select></div>
+  </div>
+
+  <div class="chips" id="chips"></div>
 </div>
 
 <div id="viewTable">
@@ -591,6 +625,69 @@ function ordenar(rows){
 }
 
 /* ---------- render ---------- */
+/* o que está filtrado agora, em etiquetas que se pode tirar uma a uma */
+const CAMPOS = [
+  {id:'q',    nome:'Busca'},
+  {id:'fFil', nome:'Filial'},
+  {id:'fSit', nome:'Situação', padrao:true},
+  {id:'fPP',  nome:'Itens'},
+  {id:'fTP',  nome:'Tipo'},
+  {id:'fGru', nome:'Grupo'},
+  {id:'fCmp', nome:'Comprador'},
+  {id:'fFor', nome:'Fornecedor'},
+  {id:'fCC',  nome:'Centro de custo'},
+  {id:'fCL',  nome:'Classe de valor'}
+];
+
+function ativos(){
+  return CAMPOS.filter(c=>{
+    const el = document.getElementById(c.id);
+    if(!el || !el.value) return false;
+    if(el.closest && el.closest('.f') && el.closest('.f').style.display==='none') return false;
+    if(c.id==='fSit') return el.selectedIndex > 0;          // a primeira opção é "todos"
+    if(c.id==='fPP')  return el.value !== '0';
+    return true;
+  }).map(c=>{
+    const el = document.getElementById(c.id);
+    const texto = el.tagName === 'SELECT'
+      ? (el.options[el.selectedIndex] ? el.options[el.selectedIndex].text : el.value)
+      : el.value;
+    return {...c, texto};
+  });
+}
+
+function limparUm(id){
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.value = (id==='fSit') ? el.options[0].value : (id==='fPP' ? '0' : '');
+  if(id==='fFil') popularContas();
+  sel = null; render();
+}
+
+function renderChips(){
+  const lista = ativos();
+  const caixa = document.getElementById('chips');
+  caixa.innerHTML = lista.map(c =>
+    `<span class="chip"><b>${c.nome}:</b><span>${esc(c.texto)}</span>
+     <button onclick="limparUm('${c.id}')" aria-label="Tirar o filtro ${c.nome}" title="Tirar este filtro">×</button></span>`
+  ).join('') + (lista.length > 1
+    ? '<button class="chip tudo" onclick="limpar()">Limpar tudo</button>' : '');
+
+  const selo = document.getElementById('qtdFiltros');
+  const escondidos = lista.filter(c => !['q','fFil','fSit'].includes(c.id)).length;
+  selo.textContent = escondidos || '';
+  selo.className = 'selo' + (escondidos ? ' on' : '');
+}
+
+function alternarFiltros(){
+  const painel = document.getElementById('avancados');
+  const bt = document.getElementById('btMais');
+  const abrir = painel.hasAttribute('hidden');
+  if(abrir) painel.removeAttribute('hidden'); else painel.setAttribute('hidden','');
+  bt.setAttribute('aria-expanded', abrir ? 'true' : 'false');
+  bt.firstChild.textContent = abrir ? 'Menos filtros' : 'Mais filtros';
+}
+
 function contadores(){
   document.getElementById('c-pc').textContent = PC.filter(nopp).length.toLocaleString('pt-BR');
   document.getElementById('c-sc').textContent = SC.filter(nopp).length.toLocaleString('pt-BR');
@@ -598,14 +695,14 @@ function contadores(){
   document.getElementById('c-rv').textContent = (revisoes().reduce((s,b)=>s+b.linhas.length,0)).toLocaleString('pt-BR');
 }
 function render(){
-  contadores();
+  contadores(); renderChips();
   if(tab==='rv'){ tab='pc'; renderHero(filtrar(baseRows())); tab='rv'; renderRevisao(); return; }
   if(tab==='rs'){ tab='pc'; renderHero(filtrar(baseRows())); tab='rs'; renderResumo(); return; }
   const rows = filtrar(baseRows());
   renderHero(rows);
   const cols=COLS[tab], s=sort[tab];
   document.getElementById('th').innerHTML='<th class="sev"></th>'+cols.map(c=>
-    `<th class="${s.k===c.k?'on':''} ${c.num?'num':''}"><button onclick="ordena('${c.k}')">${c.l}${s.k===c.k?(s.dir<0?' ↓':' ↑'):''}</button></th>`).join('');
+    `<th class="${s.k===c.k?'on':''} ${c.num?'num':''}"><button onclick="ordena('${c.k}')" title="Clique para ordenar por ${c.l}">${c.l}${s.k===c.k?(s.dir<0?' ↓':' ↑'):''}</button></th>`).join('');
   const tb=document.getElementById('tbody');
   if(!rows.length){
     const semBase = (tab==='rp' && !(DADOS.rep && DADOS.rep.length));
