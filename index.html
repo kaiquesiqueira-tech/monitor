@@ -168,6 +168,14 @@ tbody tr:last-child td{border-bottom:none}
   letter-spacing:.04em;text-transform:uppercase;margin:32px 0 14px;padding-bottom:9px;border-bottom:1px solid var(--line)}
 .graficos{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px}
 .graficos .card.larga{grid-column:1/-1}
+.evogrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:16px;margin-bottom:18px}
+.evo{border-left:3px solid var(--line);padding-left:14px}
+.evo .v{font-family:"Barlow Condensed","IBM Plex Sans",sans-serif;font-weight:700;font-size:42px;line-height:.95}
+.evo .k{font-size:13px;color:var(--muted);margin:2px 0 7px;line-height:1.3}
+.evo .var{display:block;font-size:12.5px;line-height:1.5}
+.evo .var.pior{color:var(--s4);font-weight:600}
+.evo .var.melhor{color:var(--s0);font-weight:600}
+.evo .var.igual{color:var(--muted)}
 .graficos .card{padding:15px 16px}
 .graficos h3{margin:0 0 2px}
 .legf{display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--muted);margin:0 0 10px}
@@ -736,30 +744,6 @@ function revisoes(){
     }))
   });
 
-  /* mesma descrição em códigos diferentes: provável cadastro em duplicidade */
-  const semAcento = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g,'')
-                          .toUpperCase().replace(/[^A-Z0-9]+/g,' ').trim();
-  const porDesc = {};
-  PC.concat(SC).concat(REP).forEach(r => {
-    const k = semAcento(r.desc);
-    if(!k) return;
-    (porDesc[k] = porDesc[k] || new Map()).set(r.produto, r);
-  });
-  blocos.push({
-    id:'descdup', titulo:'Mesma descrição em códigos diferentes',
-    texto:'O mesmo item aparece cadastrado com mais de um código. Isso divide o estoque, divide o ponto de pedido e faz comprar em dobro.',
-    linhas: Object.values(porDesc).filter(v => v.size > 1).map(v => {
-      const itens = [...v.values()], codigos = [...v.keys()];
-      const ref = itens.find(x => x.pedido !== undefined)
-               || itens.find(x => x.sc !== undefined) || itens[0];
-      return {
-        t: ref.pedido !== undefined ? 'pc' : (ref.sc !== undefined ? 'sc' : undefined),
-        i: ref.i, emp: ref.emp, desc: ref.desc, n: codigos.length,
-        nota: codigos.length + ' códigos: ' + codigos.join(', ')
-      };
-    }).sort((a,b) => b.n - a.n)
-  });
-
   /* ponto de pedido sem lote econômico */
   const semLote = [];
   Object.entries(DADOS.parm).forEach(([chave, v]) => {
@@ -813,38 +797,73 @@ function renderRevisao(){
 function renderTendencia(){
   const caixa = document.getElementById('tendencia');
   const h = (window.HISTORICO || []).slice(-40);
+  const series = [
+    { k:'vencidos',  l:'pedidos vencidos',            c:'var(--s3)' },
+    { k:'paradas30', l:'solicitações paradas há +30 dias', c:'var(--s2)' },
+    { k:'abaixo_pp', l:'itens abaixo do ponto de pedido',  c:'var(--s1)' }
+  ];
+
+  /* um retrato só: mostra os números de hoje e explica que a curva aparece depois */
   if(h.length < 2){
-    caixa.innerHTML = `<div class="card"><p class="subcard" style="margin:0">A cada publicação o monitor guarda um retrato do dia.
-      Com dois ou mais dias, aparece aqui a curva de pedidos vencidos, solicitações paradas e itens abaixo do ponto de pedido.
-      Hoje há ${h.length} retrato.</p></div>`;
+    const hoje = h[0];
+    const caixas = hoje ? series.map(s =>
+      `<div class="parm"><div class="v" style="color:${s.c}">${(hoje[s.k]||0).toLocaleString('pt-BR')}</div>
+       <div class="k">${s.l}</div></div>`).join('') : '';
+    caixa.innerHTML = `<div class="card larga">
+      <div class="parms">${caixas}</div>
+      <p class="subcard" style="margin:14px 0 0">A cada publicação o monitor guarda um retrato do dia.
+      A partir do segundo dia aparece aqui a comparação e a curva. Hoje há ${h.length} retrato.</p></div>`;
     return;
   }
-  const L = 760, A = 210, base = A - 30, topo = 16, esq = 4;
-  const series = [
-    { k:'vencidos', l:'pedidos vencidos', c:'var(--s3)' },
-    { k:'paradas30', l:'solicitações paradas há +30 dias', c:'var(--s2)' },
-    { k:'abaixo_pp', l:'abaixo do ponto de pedido', c:'var(--s1)' }
-  ];
+
+  const atual = h[h.length - 1], ontem = h[h.length - 2], inicio = h[0];
+  const dias = Math.max(1, Math.round((new Date(atual.data) - new Date(inicio.data)) / 864e5));
+
+  /* nestes três indicadores, subir é piorar */
+  const variacao = (agora, antes, rotulo) => {
+    const d = (agora||0) - (antes||0);
+    if(!d) return `<span class="var igual">sem mudança ${rotulo}</span>`;
+    const cor = d > 0 ? 'pior' : 'melhor';
+    return `<span class="var ${cor}">${d > 0 ? '▲' : '▼'} ${Math.abs(d).toLocaleString('pt-BR')} ${rotulo}</span>`;
+  };
+
+  const cartoes = series.map(s => `
+    <div class="evo">
+      <div class="v" style="color:${s.c}">${(atual[s.k]||0).toLocaleString('pt-BR')}</div>
+      <div class="k">${s.l}</div>
+      ${variacao(atual[s.k], ontem[s.k], 'desde ' + df(ontem.data).slice(0,5))}
+      ${variacao(atual[s.k], inicio[s.k], 'em ' + dias + (dias === 1 ? ' dia' : ' dias'))}
+    </div>`).join('');
+
+  const L = 760, A = 210, base = A - 30, topo = 22, esq = 6, dir = 46;
   const max = Math.max(1, ...h.flatMap(r => series.map(s => r[s.k] || 0)));
-  const px = i => esq + i * ((L - esq) / Math.max(h.length - 1, 1));
+  const px = i => esq + i * ((L - esq - dir) / Math.max(h.length - 1, 1));
   const py = v => base - (v / max) * (base - topo);
 
   let svg = `<svg class="gr" viewBox="0 0 ${L} ${A}" preserveAspectRatio="none" role="img" aria-label="Evolução dia a dia">`;
   [0.5, 1].forEach(f => { const y = base - f * (base - topo);
-    svg += `<line x1="0" y1="${y.toFixed(1)}" x2="${L}" y2="${y.toFixed(1)}" stroke="var(--line2)" stroke-dasharray="3 4"/>`; });
-  svg += `<line x1="0" y1="${base}" x2="${L}" y2="${base}" stroke="var(--line)"/>`;
+    svg += `<line x1="0" y1="${y.toFixed(1)}" x2="${L - dir}" y2="${y.toFixed(1)}" stroke="var(--line2)" stroke-dasharray="3 4"/>`;
+    svg += `<text x="${L - dir + 6}" y="${(y + 4).toFixed(1)}" font-size="11" fill="var(--muted)">${Math.round(max * f).toLocaleString('pt-BR')}</text>`;
+  });
+  svg += `<line x1="0" y1="${base}" x2="${L - dir}" y2="${base}" stroke="var(--line)"/>`;
   series.forEach(s => {
     const pts = h.map((r,i) => `${px(i).toFixed(1)},${py(r[s.k]||0).toFixed(1)}`).join(' ');
     svg += `<polyline points="${pts}" fill="none" stroke="${s.c}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
-    h.forEach((r,i) => { svg += `<circle cx="${px(i).toFixed(1)}" cy="${py(r[s.k]||0).toFixed(1)}" r="3" fill="${s.c}"><title>${df(r.data)}: ${r[s.k]||0} ${s.l}</title></circle>`; });
+    h.forEach((r,i) => { svg += `<circle cx="${px(i).toFixed(1)}" cy="${py(r[s.k]||0).toFixed(1)}" r="3" fill="${s.c}"><title>${df(r.data)}: ${(r[s.k]||0).toLocaleString('pt-BR')} ${s.l}</title></circle>`; });
+    /* valor de hoje escrito na ponta da linha */
+    const ultimo = h.length - 1;
+    svg += `<text x="${(px(ultimo) + 7).toFixed(1)}" y="${(py(atual[s.k]||0) + 4).toFixed(1)}" font-size="12.5" font-weight="600" fill="${s.c}">${(atual[s.k]||0).toLocaleString('pt-BR')}</text>`;
   });
   h.forEach((r,i) => { if(h.length <= 12 || i % Math.ceil(h.length/10) === 0)
     svg += `<text x="${px(i).toFixed(1)}" y="${base+17}" text-anchor="middle" font-size="11" fill="var(--muted)">${df(r.data).slice(0,5)}</text>`; });
   svg += '</svg>';
 
   caixa.innerHTML = `<div class="card larga">
+    <div class="evogrid">${cartoes}</div>
     <p class="legf">${series.map(s=>`<i style="background:${s.c}"></i>${s.l}`).join('')}</p>
-    ${svg}</div>`;
+    ${svg}
+    <p class="subcard" style="margin:10px 0 0">Comparando ${df(inicio.data)} e ${df(atual.data)}, ${h.length} retratos. Subir é piorar nos três.</p>
+  </div>`;
 }
 
 /* Barras por mês de emissão, uma carta por filial. SVG puro: segue o tema e funciona sem rede. */
