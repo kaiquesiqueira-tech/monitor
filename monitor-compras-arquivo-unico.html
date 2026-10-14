@@ -286,6 +286,20 @@ tbody tr:hover .sev{width:7px}
 .dt tbody tr.atual td:first-child{padding-left:9px}
 .tagf{font-size:11px;border:1px solid var(--line);padding:0 5px;margin-left:6px;color:var(--muted);border-radius:2px}
 
+/* ---------- instalar o monitor no aparelho ---------- */
+#scrimInst{position:fixed;inset:0;background:var(--veu);opacity:0;pointer-events:none;transition:opacity .18s;z-index:80}
+#scrimInst.on{opacity:1;pointer-events:auto}
+#comoInstalar{position:fixed;left:50%;top:50%;transform:translate(-50%,-46%) scale(.98);z-index:90;
+  width:min(440px,calc(100% - 32px));background:var(--panel);border:1px solid var(--line);
+  box-shadow:0 18px 60px rgba(0,0,0,.3);padding:22px 24px 20px;border-radius:var(--r);
+  opacity:0;pointer-events:none;transition:opacity .2s,transform .2s}
+#comoInstalar.on{opacity:1;pointer-events:auto;transform:translate(-50%,-50%) scale(1)}
+#comoInstalar h2{margin:0 0 6px;font-size:19px;font-weight:600}
+#comoInstalar ol{margin:12px 0 18px;padding-left:20px;font-size:14px;line-height:1.6}
+#comoInstalar li{margin-bottom:6px}
+#comoInstalar p{margin:0;font-size:13.5px;color:var(--muted);line-height:1.5}
+#comoInstalar .btn{width:100%}
+
 /* ---------- aviso de base nova ---------- */
 #avisoBase{position:fixed;left:50%;bottom:24px;transform:translate(-50%,160%);z-index:60;
   display:flex;align-items:center;gap:14px;max-width:calc(100% - 28px);
@@ -372,6 +386,10 @@ tbody tr:hover .sev{width:7px}
         <span id="npp"></span> itens com ponto de pedido · <span id="versao"></span><br>
         <span id="pulso"></span>
       </div>
+      <button class="tema" id="btInstalar" onclick="instalar()" style="display:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4.5-4.5M12 15l-4.5-4.5M4 17v2.5A1.5 1.5 0 0 0 5.5 21h13a1.5 1.5 0 0 0 1.5-1.5V17"/></svg>
+        <span>Instalar</span>
+      </button>
       <button class="tema" id="btTema" onclick="trocarTema()" aria-pressed="false">
         <span id="temaIcone"></span><span id="temaTexto">Escuro</span>
       </button>
@@ -462,6 +480,12 @@ tbody tr:hover .sev{width:7px}
 </div>
 
 <div id="avisoBase" role="status" aria-live="polite"><span id="avisoTexto"></span><button onclick="esconderAviso()">Fechar</button></div>
+<div id="scrimInst" onclick="fecharInstalar()"></div>
+<div id="comoInstalar" role="dialog" aria-modal="true" aria-labelledby="instTit">
+  <h2 id="instTit">Instalar o monitor</h2>
+  <div id="instPassos"></div>
+  <button class="btn ghost" onclick="fecharInstalar()">Fechar</button>
+</div>
 <div id="scrim" onclick="fechar()"></div>
 <aside id="drawer" role="dialog" aria-modal="true" aria-labelledby="dTitulo" tabindex="-1">
   <div class="dhead">
@@ -1375,7 +1399,7 @@ function fechar(){
   document.getElementById('scrim').classList.remove('on');
   if(ultimoFoco&&ultimoFoco.focus) ultimoFoco.focus();
 }
-document.addEventListener('keydown',e=>{if(e.key==='Escape')fechar();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){fechar();fecharInstalar();}});
 
 /* ---------- compartilhar no WhatsApp ---------- */
 
@@ -1601,6 +1625,53 @@ function ligarAtualizacao(){
   window.addEventListener('focus', verificarBase);
 }
 
+/* ---------- instalar como aplicativo ---------- */
+let convite = null;
+const instalado = () => window.matchMedia && window.matchMedia('(display-mode: standalone)').matches
+                     || navigator.standalone === true;
+const ehApple = () => /iPhone|iPad|iPod/i.test(navigator.userAgent || '')
+                   || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent || ''));
+
+function botaoInstalar(){
+  const bt = document.getElementById('btInstalar');
+  if(!bt) return;
+  bt.style.display = (!instalado() && (convite || ehApple())) ? '' : 'none';
+}
+
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); convite = e; botaoInstalar(); });
+window.addEventListener('appinstalled', () => {
+  convite = null; botaoInstalar();
+  mostrarAviso('Monitor instalado. Ele agora abre pelo ícone, em tela cheia e funcionando sem internet.');
+});
+
+async function instalar(){
+  if(convite){
+    convite.prompt();
+    const escolha = await convite.userChoice.catch(()=>null);
+    if(escolha && escolha.outcome === 'accepted') convite = null;
+    botaoInstalar();
+    return;
+  }
+  const passos = ehApple()
+    ? ['Toque no botão de compartilhar do Safari, o quadrado com a seta para cima.',
+       'Role a lista e escolha <b>Adicionar à Tela de Início</b>.',
+       'Confirme em <b>Adicionar</b>, no canto superior direito.']
+    : ['Abra o menu do navegador, os três pontinhos no canto.',
+       'Escolha <b>Instalar aplicativo</b> ou <b>Adicionar à tela inicial</b>.',
+       'Confirme em <b>Instalar</b>.'];
+  document.getElementById('instPassos').innerHTML =
+    '<ol>' + passos.map(p => '<li>' + p + '</li>').join('') + '</ol>' +
+    '<p>Instalado, o monitor abre pelo ícone, em tela cheia, sem a barra do navegador, ' +
+    'e continua funcionando sem internet com a última base baixada.</p>';
+  document.getElementById('comoInstalar').classList.add('on');
+  document.getElementById('scrimInst').classList.add('on');
+}
+
+function fecharInstalar(){
+  document.getElementById('comoInstalar').classList.remove('on');
+  document.getElementById('scrimInst').classList.remove('on');
+}
+
 /* ---------- tema claro e escuro ---------- */
 const SOL='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.4M12 19.6V22M4.2 4.2l1.7 1.7M18.1 18.1l1.7 1.7M2 12h2.4M19.6 12H22M4.2 19.8l1.7-1.7M18.1 5.9l1.7-1.7"/></svg>';
 const LUA='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 14.6A8.6 8.6 0 0 1 9.4 3.5a8.6 8.6 0 1 0 11.1 11.1z"/></svg>';
@@ -1702,7 +1773,7 @@ function popularContas(){
   });
 }
 (function init(){
-  aplicarTema(); carimbo(); popularFiltros();
+  aplicarTema(); botaoInstalar(); carimbo(); popularFiltros();
   window.addEventListener('scroll', aoRolar, {passive:true});
   window.addEventListener('offline', ()=>{ carimboPulso(); mostrarAviso('Sem conexão. O monitor segue funcionando com a última base baixada.'); });
   window.addEventListener('online',  ()=>{ carimboPulso(); verificarBase(); });
