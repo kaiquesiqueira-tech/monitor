@@ -1403,6 +1403,31 @@ function resumoTexto(){
   return txt;
 }
 
+/* No computador abre o WhatsApp Web direto; no celular, o aplicativo.
+   O texto também vai para a área de transferência, para o caso de a janela ser bloqueada. */
+const noCelular = () => /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '')
+                     || (navigator.maxTouchPoints > 1 && Math.min(screen.width, screen.height) < 820);
+
+function abrirWhats(texto){
+  let copiou = false;
+  try{
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(texto); copiou = true;
+    }
+  }catch(e){}
+
+  const destino = noCelular()
+    ? 'https://wa.me/?text='
+    : 'https://web.whatsapp.com/send?text=';
+  const janela = window.open(destino + encodeURIComponent(texto), '_blank', 'noopener');
+
+  if(!janela) mostrarAviso(copiou
+    ? 'O navegador bloqueou a janela. A mensagem foi copiada: cole no WhatsApp.'
+    : 'O navegador bloqueou a janela. Libere o bloqueio de pop-ups para este site.');
+  else if(copiou && !noCelular())
+    mostrarAviso('Abrindo o WhatsApp Web. A mensagem também foi copiada, caso precise colar.');
+}
+
 function textoItem(){
   if(!fichaAtual) return '';
   const r = fichaDe(fichaAtual.t, fichaAtual.i);
@@ -1442,7 +1467,7 @@ async function compartilharItem(){
   try{
     if(navigator.share){ await navigator.share({ text: texto, title: 'Monitor PC e SC' }); return; }
   }catch(e){ if(e && e.name === 'AbortError') return; }
-  window.open('https://wa.me/?text=' + encodeURIComponent(texto), '_blank', 'noopener');
+  abrirWhats(texto);
 }
 
 async function compartilhar(){
@@ -1460,7 +1485,7 @@ async function compartilhar(){
       }
     }
   }catch(e){ if(e && e.name === 'AbortError') return; }
-  window.open('https://wa.me/?text=' + encodeURIComponent(texto), '_blank', 'noopener');
+  abrirWhats(texto);
 }
 
 /* ---------- base sempre atual ---------- */
