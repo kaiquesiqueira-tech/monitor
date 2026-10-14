@@ -423,7 +423,7 @@ tbody tr:hover .sev{width:7px}
 <div class="filters" id="filters">
   <div class="linha1">
     <div class="f busca"><label for="q">Buscar</label>
-      <input type="search" id="q" placeholder="produto, descrição, pedido, SC, data de emissão…"></div>
+      <input type="search" id="q" placeholder="digite qualquer parte: oleo mobil, filtro cat, 020100033, 10/02/2026…"></div>
     <div class="f"><label for="fFil">Filial</label><select id="fFil"></select></div>
     <div class="f" id="wDias"><label for="fSit">Situação</label><select id="fSit"></select></div>
     <div class="f"><label>&nbsp;</label>
@@ -625,24 +625,62 @@ function baseRows(){
   return tab==='pc' ? PC.filter(r=>r.atraso>=min&&nopp(r))
                     : SC.filter(r=>r.idade>=min&&nopp(r));
 }
-/* a busca também aceita data: 10/02/2026, 02/2026, 2026-02, 10.02.26 */
-const soData = t => t.replace(/[.\-]/g,'/');
+/* Busca tolerante, no estilo da consulta de produtos do Protheus: não precisa ser
+   igual nem na ordem. Tira acento, ignora maiúscula e pontuação, e cada palavra
+   digitada pode aparecer em qualquer lugar da linha. Datas continuam valendo
+   (10/02/2026, 02/2026, 2026-02, 10.02.26). */
+const semAcentos = t => (t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+const normalizar = t => semAcentos(String(t).toLowerCase())
+  .replace(/[.\-]/g, '/')
+  .replace(/[^a-z0-9/ ]+/g, ' ')
+  .replace(/\s+/g, ' ')
+  .trim();
+const soData = normalizar;   /* nome antigo, mantido para o resto do código */
+
+/* distância de edição com desistência rápida: serve para aceitar um errinho de digitação */
+function pertinho(a, b, limite){
+  if(Math.abs(a.length - b.length) > limite) return false;
+  const linha = Array.from({length: b.length + 1}, (_, i) => i);
+  for(let i = 1; i <= a.length; i++){
+    let anterior = linha[0]++, melhor = linha[0];
+    for(let j = 1; j <= b.length; j++){
+      const atual = linha[j];
+      linha[j] = Math.min(linha[j] + 1, linha[j-1] + 1, anterior + (a[i-1] === b[j-1] ? 0 : 1));
+      anterior = atual;
+      if(linha[j] < melhor) melhor = linha[j];
+    }
+    if(melhor > limite) return false;
+  }
+  return linha[b.length] <= limite;
+}
+
+function quaseIgual(termo, texto){
+  const limite = termo.length >= 7 ? 2 : (termo.length >= 4 ? 1 : 0);
+  if(!limite) return false;
+  for(const palavra of texto.split(' '))
+    if(palavra && pertinho(termo, palavra, limite)) return true;
+  return false;
+}
+
+let buscaAproximada = false;
 /* O texto de busca de cada linha é montado uma vez só e guardado nela.
    Antes era remontado a cada tecla digitada, em todas as linhas. */
 function textoBusca(r){
   if(r._hay) return r._hay;
   const datas = r.emissao ? df(r.emissao)+' '+r.emissao.replace(/-/g,'/')+' '+df(r.emissao).slice(3) : '';
-  return r._hay = soData((r.produto+' '+r.desc+' '+(r.pedido||'')+' '+(r.sc||'')+' '+
-                 (r.forn||'')+' '+(r.comprador||'')+' '+datas).toLowerCase());
+  return r._hay = normalizar(r.produto+' '+r.desc+' '+(r.pedido||'')+' '+(r.sc||'')+' '+
+                 (r.forn||'')+' '+(r.fornnome||'')+' '+(r.comprador||'')+' '+
+                 (r.cc||'')+' '+nomeCC(r)+' '+(r.classe||'')+' '+nomeCL(r)+' '+
+                 tipoDe(r)+' '+(r.um||'')+' '+datas);
 }
 
 function filtrar(rows){
   const v = id => { const el = document.getElementById(id); return el ? el.value : ''; };
-  const q = soData(v('q').trim().toLowerCase());
+  const termos = normalizar(v('q')).split(' ').filter(Boolean);
   const fFil = v('fFil'), fGru = v('fGru'), fCmp = v('fCmp'), fFor = v('fFor'),
         fCC = v('fCC'), fCL = v('fCL'), fTP = v('fTP');
   const ehPC = tab === 'pc';
-  return rows.filter(r=>{
+  const base = rows.filter(r=>{
     if(sel && faixa(vf(r)).k!==sel) return false;
     if(fFil && r.filial!==fFil) return false;
     if(fGru && r.grupo!==fGru) return false;
@@ -650,9 +688,23 @@ function filtrar(rows){
     if(fCC && r.cc!==fCC) return false;
     if(fCL && r.classe!==fCL) return false;
     if(fTP && tipoDe(r)!==fTP) return false;
-    if(q && !textoBusca(r).includes(q)) return false;
     return true;
   });
+
+  buscaAproximada = false;
+  if(!termos.length) return base;
+
+  /* primeiro o que bate letra por letra, em qualquer ordem */
+  const exatos = base.filter(r => { const t = textoBusca(r); return termos.every(x => t.includes(x)); });
+  if(exatos.length) return exatos;
+
+  /* nada encontrado: aceita um errinho de digitação em cada palavra */
+  const parecidos = base.filter(r => {
+    const t = textoBusca(r);
+    return termos.every(x => t.includes(x) || quaseIgual(x, t));
+  });
+  buscaAproximada = parecidos.length > 0;
+  return parecidos;
 }
 function ordenar(rows){
   const s=sort[tab];
@@ -754,7 +806,8 @@ function render(){
     tb.innerHTML = '';
     pintarMais(LOTE_INICIAL);
   }
-  document.getElementById('cnt').textContent = rows.length.toLocaleString('pt-BR')+' itens listados';
+  document.getElementById('cnt').textContent = rows.length.toLocaleString('pt-BR') + ' itens listados' +
+    (buscaAproximada ? ' — nada igual ao que você digitou, estes são os parecidos' : '');
   if(tab==='rp'){
     document.getElementById('tot').textContent =
       'Falta comprar: ' + nf.format(rows.reduce((s,r)=>s+r.falta,0)) + ' unidades no total';
