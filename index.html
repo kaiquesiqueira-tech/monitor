@@ -601,26 +601,30 @@ function baseRows(){
 }
 /* a busca também aceita data: 10/02/2026, 02/2026, 2026-02, 10.02.26 */
 const soData = t => t.replace(/[.\-]/g,'/');
+/* O texto de busca de cada linha é montado uma vez só e guardado nela.
+   Antes era remontado a cada tecla digitada, em todas as linhas. */
+function textoBusca(r){
+  if(r._hay) return r._hay;
+  const datas = r.emissao ? df(r.emissao)+' '+r.emissao.replace(/-/g,'/')+' '+df(r.emissao).slice(3) : '';
+  return r._hay = soData((r.produto+' '+r.desc+' '+(r.pedido||'')+' '+(r.sc||'')+' '+
+                 (r.forn||'')+' '+(r.comprador||'')+' '+datas).toLowerCase());
+}
+
 function filtrar(rows){
-  const q=soData(document.getElementById('q').value.trim().toLowerCase());
-  const fFil=document.getElementById('fFil').value, fGru=document.getElementById('fGru').value,
-        fCmp=document.getElementById('fCmp').value, fFor=document.getElementById('fFor').value;
+  const v = id => { const el = document.getElementById(id); return el ? el.value : ''; };
+  const q = soData(v('q').trim().toLowerCase());
+  const fFil = v('fFil'), fGru = v('fGru'), fCmp = v('fCmp'), fFor = v('fFor'),
+        fCC = v('fCC'), fCL = v('fCL'), fTP = v('fTP');
+  const ehPC = tab === 'pc';
   return rows.filter(r=>{
     if(sel && faixa(vf(r)).k!==sel) return false;
     if(fFil && r.filial!==fFil) return false;
     if(fGru && r.grupo!==fGru) return false;
-    if(tab==='pc'){ if(fCmp && r.comprador!==fCmp) return false; if(fFor && r.forn!==fFor) return false; }
-    const fCC=document.getElementById('fCC').value, fCL=document.getElementById('fCL').value;
+    if(ehPC){ if(fCmp && r.comprador!==fCmp) return false; if(fFor && r.forn!==fFor) return false; }
     if(fCC && r.cc!==fCC) return false;
     if(fCL && r.classe!==fCL) return false;
-    const fTP=document.getElementById('fTP').value;
     if(fTP && tipoDe(r)!==fTP) return false;
-    if(q){
-      const datas = r.emissao ? df(r.emissao)+' '+r.emissao.replace(/-/g,'/')+' '+df(r.emissao).slice(3) : '';
-      const hay = soData((r.produto+' '+r.desc+' '+(r.pedido||'')+' '+(r.sc||'')+' '+
-                  (r.forn||'')+' '+(r.comprador||'')+' '+datas).toLowerCase());
-      if(!hay.includes(q)) return false;
-    }
+    if(q && !textoBusca(r).includes(q)) return false;
     return true;
   });
 }
@@ -720,10 +724,11 @@ function render(){
         'Confira se o gerar_dados.py é o mais recente e se os arquivos SALDO estão na pasta dados, e publique de novo.'
       : '<b>Nada por aqui</b>Ajuste os filtros acima para ver outros itens.'}</div></td></tr>`;
   } else {
-    tb.innerHTML=ordenar(rows).slice(0,2500).map(r=>linha(r,cols)).join('');
+    fila = { rows: ordenar(rows), cols: cols, feitas: 0 };
+    tb.innerHTML = '';
+    pintarMais(LOTE_INICIAL);
   }
-  document.getElementById('cnt').textContent =
-    rows.length.toLocaleString('pt-BR')+' itens listados'+(rows.length>2500?' (a tela mostra os 2.500 primeiros — filtre mais ou baixe o Excel)':'');
+  document.getElementById('cnt').textContent = rows.length.toLocaleString('pt-BR')+' itens listados';
   if(tab==='rp'){
     document.getElementById('tot').textContent =
       'Falta comprar: ' + nf.format(rows.reduce((s,r)=>s+r.falta,0)) + ' unidades no total';
@@ -736,6 +741,28 @@ function render(){
     document.getElementById('tot').textContent = rows.filter(r=>r.idade>30).length+' com mais de 30 dias';
   }
 }
+
+/* Pintar duas mil linhas de uma vez trava o celular. A lista entra por lotes,
+   e os próximos chegam conforme você rola. */
+const LOTE_INICIAL = 60, LOTE = 60;
+let fila = { rows: [], cols: [], feitas: 0 };
+
+function pintarMais(quantos){
+  if(fila.feitas >= fila.rows.length) return;
+  const parte = fila.rows.slice(fila.feitas, fila.feitas + quantos);
+  document.getElementById('tbody').insertAdjacentHTML('beforeend',
+    parte.map(r => linha(r, fila.cols)).join(''));
+  fila.feitas += parte.length;
+}
+
+function pertoDoFim(){
+  const caixa = document.querySelector('.tablecard');
+  if(caixa && caixa.scrollHeight > caixa.clientHeight + 20)      // lista com rolagem própria
+    return caixa.scrollTop + caixa.clientHeight > caixa.scrollHeight - 600;
+  return window.innerHeight + window.scrollY > document.body.offsetHeight - 700;
+}
+
+function aoRolar(){ if(pertoDoFim()) pintarMais(LOTE); }
 
 function linha(r,cols){
   const d = vf(r), f=faixa(d);
@@ -1551,6 +1578,7 @@ async function lerPulso(){
 async function verificarBase(){
   if(!/^https?:/.test(location.protocol) || checando) return;
   if(document.hidden) return;            // aba escondida não fica consultando à toa
+  if(navigator.onLine === false) return; // sem rede, nem tenta
   checando = true;
   try{
     if(Date.now() - ultimoApp > INTERVALO_APP){ ultimoApp = Date.now(); verificarApp(); lerPulso(); }
@@ -1619,6 +1647,11 @@ function carimbo(){
 function carimboPulso(){
   const alvo = document.getElementById('pulso');
   if(!alvo) return;
+  if(navigator.onLine === false){
+    alvo.innerHTML = '<span class="luz velha"></span>sem conexão, usando a última base baixada';
+    alvo.title = 'O monitor funciona offline. Quando a internet voltar, ele busca a base nova sozinho.';
+    return;
+  }
   if(!PULSO || !PULSO.verificado){ alvo.textContent = ''; return; }
   const quando = new Date(PULSO.verificado.replace(' ', 'T'));
   if(isNaN(quando)){ alvo.textContent = ''; return; }
@@ -1668,11 +1701,19 @@ function popularContas(){
 }
 (function init(){
   aplicarTema(); carimbo(); popularFiltros();
+  window.addEventListener('scroll', aoRolar, {passive:true});
+  window.addEventListener('offline', ()=>{ carimboPulso(); mostrarAviso('Sem conexão. O monitor segue funcionando com a última base baixada.'); });
+  window.addEventListener('online',  ()=>{ carimboPulso(); verificarBase(); });
+  const caixa = document.querySelector('.tablecard');
+  if(caixa) caixa.addEventListener('scroll', aoRolar, {passive:true});
   ['q','fPP','fFil','fGru','fCmp','fFor','fCC','fCL','fTP','fSit'].forEach(i=>{
     const el=document.getElementById(i);
+    let espera;
     el.addEventListener(i==='q'?'input':'change',()=>{
       if(i==='fFil') popularContas();
-      sel=null; render();
+      sel=null;
+      if(i==='q'){ clearTimeout(espera); espera=setTimeout(render, 120); }
+      else render();
     });
   });
   setTab('pc');
