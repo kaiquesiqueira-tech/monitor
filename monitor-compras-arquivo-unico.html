@@ -665,8 +665,8 @@ function filtrar(rows){
     if(fFil && r.filial!==fFil) return false;
     if(fGru && r.grupo!==fGru) return false;
     if(ehPC){ if(fCmp && r.comprador!==fCmp) return false; if(fFor && r.forn!==fFor) return false; }
-    if(fCC && r.cc!==fCC) return false;
-    if(fCL && r.classe!==fCL) return false;
+    if(fCC && (fCC===SEM_PREENCHER ? !!r.cc : r.cc!==fCC)) return false;
+    if(fCL && (fCL===SEM_PREENCHER ? !!r.classe : r.classe!==fCL)) return false;
     if(fTP && tipoDe(r)!==fTP) return false;
     return true;
   });
@@ -1689,20 +1689,31 @@ function popularFiltros(){
 
 /* centro de custo e classe de valor mudam de descrição conforme a filial,
    então a lista é refeita sempre que a filial muda */
+const SEM_PREENCHER = '\u0000vazio';   /* valor reservado para "sem preenchimento" */
+
 function popularContas(){
   const fil = document.getElementById('fFil').value;
   const base = PC.concat(SC).filter(r => !fil || r.filial === fil);
-  const monta = (campo, nome) => {
+  const monta = (campo, nome, rotulo) => {
     const m = new Map();
-    base.forEach(r => { if(r[campo] && !m.has(r[campo])) m.set(r[campo], nome(r)); });
+    let vazios = 0;
+    base.forEach(r => {
+      if(!r[campo]){ vazios++; return; }
+      if(!m.has(r[campo])) m.set(r[campo], nome(r));
+    });
     const chave = ([cod,desc]) => desc ? desc : 'zzzz' + cod;   // sem descrição vai para o fim
-    return [...m].sort((a,b) => chave(a).localeCompare(chave(b), 'pt-BR'))
-                 .map(([cod,desc]) => [cod, desc ? cod + ' · ' + desc : cod]);
+    const lista = [...m].sort((a,b) => chave(a).localeCompare(chave(b), 'pt-BR'))
+                        .map(([cod,desc]) => [cod, desc ? cod + ' · ' + desc : cod]);
+    if(vazios) lista.unshift([SEM_PREENCHER, 'Sem ' + rotulo + ' · ' + vazios + ' linhas']);
+    return lista;
   };
-  ['fCC','fCL'].forEach((id,i) => {
-    const el = document.getElementById(id), antes = el.value;
-    opts(id, monta(i ? 'classe' : 'cc', i ? nomeCL : nomeCC),
-         i ? 'Todas as classes de valor' : 'Todos os centros de custo');
+  const campos = [
+    {id:'fCC', campo:'cc',     nome:nomeCC, rotulo:'centro de custo', todos:'Todos os centros de custo'},
+    {id:'fCL', campo:'classe', nome:nomeCL, rotulo:'classe de valor',  todos:'Todas as classes de valor'}
+  ];
+  campos.forEach(c => {
+    const el = document.getElementById(c.id), antes = el.value;
+    opts(c.id, monta(c.campo, c.nome, c.rotulo), c.todos);
     if([...el.options].some(o => o.value === antes)) el.value = antes;
   });
 }
