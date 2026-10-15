@@ -213,21 +213,6 @@ tbody tr:hover .sev{width:7px}
 .legf i.s{background:var(--s2);margin-left:10px}
 .legf i+i{margin-left:12px}
 .card h3 .cnt{font-family:"Barlow Condensed","IBM Plex Sans",sans-serif;font-size:19px;color:var(--muted);margin-left:5px}
-.rlista{list-style:none;margin:0;padding:0}
-.rlista li{padding:9px 0;border-bottom:1px solid var(--line2);display:flex;flex-direction:column;gap:2px}
-.rlista li:last-child{border-bottom:none}
-.rlista li[tabindex]{cursor:pointer}
-.rlista li[tabindex]:hover .rdesc{color:var(--go)}
-.rdesc{font-size:13.5px;font-weight:500;line-height:1.3}
-.rtit{display:flex;gap:12px;align-items:flex-start;width:100%;text-align:left;background:none;
-  border:none;padding:0;margin:0 0 4px;cursor:pointer;color:inherit}
-.rtit h3{margin:0 0 4px}
-.rtit .subcard{margin:0 0 10px}
-.rtit .seta{margin-left:auto;color:var(--muted);font-size:13px;padding-top:3px}
-.rtit:hover h3{color:var(--go)}
-.rlista.rolagem{max-height:440px;overflow:auto;border-top:1px solid var(--line2)}
-.rver{margin-top:12px;width:100%}
-.card.aberta{border-color:var(--muted)}
 .subcard{margin:0 0 14px;font-size:12.5px;color:var(--muted)}
 .gr{width:100%;height:auto;display:block;overflow:visible}
 .gr .barra{transition:opacity .15s}
@@ -416,7 +401,6 @@ tbody tr:hover .sev{width:7px}
   <button class="tab" role="tab" id="t-pc" aria-selected="true" onclick="setTab('pc')">Pedidos de compra <span class="c" id="c-pc"></span></button>
   <button class="tab" role="tab" id="t-sc" aria-selected="false" onclick="setTab('sc')">Solicitações de compra <span class="c" id="c-sc"></span></button>
   <button class="tab" role="tab" id="t-rp" aria-selected="false" onclick="setTab('rp')">Reposição <span class="c" id="c-rp"></span></button>
-  <button class="tab" role="tab" id="t-rv" aria-selected="false" onclick="setTab('rv')">Revisão <span class="c" id="c-rv"></span></button>
   <button class="tab" role="tab" id="t-rs" aria-selected="false" onclick="setTab('rs')">Resumo</button>
 </nav>
 
@@ -456,11 +440,6 @@ tbody tr:hover .sev{width:7px}
 <div id="viewTable">
   <div class="tablecard"><table id="tb"><thead><tr id="th"></tr></thead><tbody id="tbody"></tbody></table></div>
   <div class="foot"><span id="cnt"></span><span id="tot"></span></div>
-</div>
-
-<div id="viewRevisao" style="display:none">
-  <p class="subcard" style="margin-bottom:16px">Situações que merecem uma conferida antes de virar compra dobrada ou item parado no sistema.</p>
-  <div class="grid2" id="revisao"></div>
 </div>
 
 <div id="viewResumo" style="display:none">
@@ -592,7 +571,8 @@ function montar(){
     o.grupo = o.produto.slice(0,4);
     /* risco: 0 já tem pedido, 1 só solicitação, 2 sem cobertura, 3 sem cobertura e sem saldo */
     o.risco = o.emPedido > 0 ? 0 : (o.emSC > 0 ? 1 : (o.saldo > 0 ? 2 : 3));
-    const ref = PC.find(mesmos) || SC.find(mesmos) || PC.find(x=>x.produto===o.produto) || SC.find(x=>x.produto===o.produto);
+    const mesmoGrupo = x => x.produto===o.produto && x.filial.slice(0,2)===o.filial.slice(0,2);
+    const ref = PC.find(mesmos) || SC.find(mesmos) || PC.find(mesmoGrupo) || SC.find(mesmoGrupo);
     o.um = ref ? ref.um : '';
     return o;
   });
@@ -781,11 +761,9 @@ function contadores(){
   document.getElementById('c-pc').textContent = PC.filter(nopp).length.toLocaleString('pt-BR');
   document.getElementById('c-sc').textContent = SC.filter(nopp).length.toLocaleString('pt-BR');
   document.getElementById('c-rp').textContent = REP.length.toLocaleString('pt-BR');
-  document.getElementById('c-rv').textContent = (revisoes().reduce((s,b)=>s+b.linhas.length,0)).toLocaleString('pt-BR');
 }
 function render(){
   contadores(); renderChips();
-  if(tab==='rv'){ tab='pc'; renderHero(filtrar(baseRows())); tab='rv'; renderRevisao(); return; }
   if(tab==='rs'){ tab='pc'; renderHero(filtrar(baseRows())); tab='rs'; renderResumo(); return; }
   const rows = filtrar(baseRows());
   renderHero(rows);
@@ -911,111 +889,12 @@ function renderHero(rows){
 }
 function filtrarSemFaixa(){const s=sel;sel=null;const r=filtrar(baseRows());sel=s;return r;}
 
-/* ---------- revisão: o que merece uma conferida ---------- */
-function revisoes(){
-  if(revisoes.cache) return revisoes.cache;
-  const pc = PC.filter(nopp), sc = SC.filter(nopp);
-  const blocos = [];
-
-  /* mais de uma solicitação aberta do mesmo item na mesma filial */
-  const porItem = {};
-  sc.forEach(r => { const k = r.filial + r.produto; (porItem[k] = porItem[k] || []).push(r); });
-  const duplas = Object.values(porItem).filter(v => v.length > 1);
-  blocos.push({
-    id:'dup', titulo:'Solicitações repetidas do mesmo item',
-    texto:'Mesma filial, mesmo produto, mais de uma solicitação em aberto. Costuma virar compra dobrada.',
-    linhas: duplas.map(v => ({
-      t:'sc', i:v[0].i, emp:v[0].emp, desc:v[0].desc, produto:v[0].produto,
-      nota: v.length + ' solicitações: ' + v.map(x=>x.sc).join(', ')
-    }))
-  });
-
-  /* solicitação de item que já tem pedido em aberto */
-  const comPedido = new Set(pc.map(r => r.filial + r.produto));
-  blocos.push({
-    id:'sccomped', titulo:'Solicitação de item que já tem pedido',
-    texto:'O pedido já está colocado. Antes de gerar outro, vale confirmar se a solicitação continua necessária.',
-    linhas: sc.filter(r => comPedido.has(r.filial + r.produto)).map(r => ({
-      t:'sc', i:r.i, emp:r.emp, desc:r.desc, produto:r.produto,
-      nota:'SC ' + r.sc + ' parada há ' + r.idade + ' dias'
-    }))
-  });
-
-  /* pedidos antigos demais para ainda serem reais */
-  blocos.push({
-    id:'fantasma', titulo:'Pedidos vencidos há mais de 180 dias',
-    texto:'Entrega vencida há muito tempo. Normalmente é resíduo que ficou aberto no sistema e precisa ser encerrado.',
-    linhas: pc.filter(r => r.atraso > 180).sort((a,b)=>b.atraso-a.atraso).map(r => ({
-      t:'pc', i:r.i, emp:r.emp, desc:r.desc, produto:r.produto,
-      nota:'Pedido ' + r.pedido + ' vencido há ' + r.atraso + ' dias'
-    }))
-  });
-
-  /* compras de item sem ponto de pedido cadastrado na filial */
-  const semPP = PC.filter(r => r.pp !== 2).concat(SC.filter(r => r.pp !== 2));
-  const porFilial = {};
-  semPP.forEach(r => { porFilial[r.emp] = (porFilial[r.emp] || 0) + 1; });
-  blocos.push({
-    id:'sempp', titulo:'Itens comprados sem ponto de pedido na filial',
-    texto:'Ficam fora do monitor de reposição. Se são de estoque, falta cadastro no SBZ daquela filial.',
-    linhas: Object.entries(porFilial).sort((a,b)=>b[1]-a[1]).map(([emp,n]) => ({
-      emp: emp, desc: n.toLocaleString('pt-BR') + ' linhas de pedido ou solicitação', nota:'sem cadastro'
-    }))
-  });
-
-  /* ponto de pedido sem lote econômico */
-  const semLote = [];
-  Object.entries(DADOS.parm).forEach(([chave, v]) => {
-    if(v[0] > 0 && !v[1]) semLote.push({ produto: chave.split('|')[1], filial: chave.split('|')[0] });
-  });
-  blocos.push({
-    id:'semlote', titulo:'Ponto de pedido sem lote econômico',
-    texto:'Sabe-se quando comprar, mas não quanto. Sem o lote, cada reposição vira decisão manual.',
-    linhas: semLote.map(x => {
-      const ref = PC.concat(SC).find(r => r.produto === x.produto && r.filial === x.filial);
-      return { produto:x.produto, emp: ref ? ref.emp : x.filial,
-               desc: ref ? ref.desc : 'Item sem movimento em aberto', nota:'lote zerado' };
-    })
-  });
-
-  revisoes.cache = blocos.filter(b => b.linhas.length);
-  return revisoes.cache;
-}
-
-let revAberta = new Set();
-function alternarRev(id){
-  if(revAberta.has(id)) revAberta.delete(id); else revAberta.add(id);
-  renderRevisao();
-}
-
-function renderRevisao(){
-  const caixa = document.getElementById('revisao');
-  caixa.innerHTML = revisoes().map(b => {
-    const aberta = revAberta.has(b.id);
-    const mostra = aberta ? b.linhas : b.linhas.slice(0, 8);
-    const linhas = mostra.map(l => {
-      const clicavel = l.t !== undefined;
-      return `<li ${clicavel ? `tabindex="0" onclick="abrir('${l.t}',${l.i})" onkeydown="if(event.key==='Enter')abrir('${l.t}',${l.i})"` : ''}>
-        <span class="rdesc">${esc(l.desc)}</span>
-        <span class="code">${l.emp ? esc(l.emp) + (l.produto ? ' · ' : '') : ''}${l.produto ? esc(l.produto) : ''} — ${esc(l.nota)}</span></li>`;
-    }).join('');
-    const maisQue8 = b.linhas.length > 8;
-    return `<div class="card${aberta ? ' aberta' : ''}">
-      <button class="rtit" onclick="alternarRev('${b.id}')" aria-expanded="${aberta}">
-        <span><h3>${esc(b.titulo)} <span class="cnt">${b.linhas.length}</span></h3>
-        <p class="subcard">${esc(b.texto)}</p></span>
-        ${maisQue8 ? `<span class="seta">${aberta ? '▴' : '▾'}</span>` : ''}
-      </button>
-      <ul class="rlista${aberta ? ' rolagem' : ''}">${linhas}</ul>
-      ${maisQue8 ? `<button class="btn ghost rver" onclick="alternarRev('${b.id}')">${
-        aberta ? 'Ver menos' : 'Ver todos os ' + b.linhas.length}</button>` : ''}</div>`;
-  }).join('') || '<div class="card"><h3>Nada a revisar</h3><p class="subcard">Nenhuma inconsistência encontrada nesta base.</p></div>';
-}
-
 /* ---------- tendência dia a dia ---------- */
 function renderTendencia(){
   const caixa = document.getElementById('tendencia');
-  const h = (window.HISTORICO || []).slice(-40);
+  /* Retratos antigos contavam só itens com ponto de pedido; os novos contam a carteira
+     inteira, como a tela mostra hoje. Misturar os dois criaria um degrau falso na curva. */
+  const h = (window.HISTORICO || []).filter(r => r && r.v >= 2).slice(-40);
   const series = [
     { k:'vencidos',  l:'pedidos vencidos',            c:'var(--s3)' },
     { k:'paradas30', l:'solicitações paradas há +30 dias', c:'var(--s2)' },
@@ -1188,11 +1067,10 @@ function rank(id,pairs,fmt){
 /* ---------- interação ---------- */
 function setTab(t){
   tab=t; sel=null;
-  ['pc','sc','rp','rv','rs'].forEach(x=>document.getElementById('t-'+x).setAttribute('aria-selected',x===t));
+  ['pc','sc','rp','rs'].forEach(x=>document.getElementById('t-'+x).setAttribute('aria-selected',x===t));
   const lista = (t==='pc'||t==='sc'||t==='rp');
   document.getElementById('viewTable').style.display = lista?'':'none';
   document.getElementById('viewResumo').style.display = t==='rs'?'':'none';
-  document.getElementById('viewRevisao').style.display = t==='rv'?'':'none';
   document.getElementById('filters').style.display = lista?'':'none';
   document.getElementById('wCmp').style.display = t==='pc'?'':'none';
   document.getElementById('wFor').style.display = t==='pc'?'':'none';
@@ -1317,7 +1195,10 @@ function abrir(t,i,voltando){
   if(!aberta) { ultimoFoco=document.activeElement; pilhaFicha=[]; }
   fichaAtual={t:t,i:i};
   const cod=r.produto, fl=r.filial, emp=r.emp;
-  const peds=PC.filter(x=>x.produto===cod), sols=SC.filter(x=>x.produto===cod);
+  /* o mesmo código em outro grupo de empresas costuma ser outro produto,
+     então as linhas de outras filiais só entram se forem do mesmo grupo */
+  const mesmoItem = x => x.produto===cod && x.filial.slice(0,2)===fl.slice(0,2);
+  const peds=PC.filter(mesmoItem), sols=SC.filter(mesmoItem);
   const pAqui=DADOS.parm[fl+'|'+cod]||null;
   const outra=Object.keys(DADOS.parm).find(k=>k.endsWith('|'+cod)&&k!==fl+'|'+cod);
   const P=pAqui||(outra?DADOS.parm[outra]:null);

@@ -184,14 +184,14 @@ def ler_tipos(usados):
     A chave é o grupo de empresas (02, 10) mais o código, porque o mesmo código pode
     ter tipo diferente em cada grupo."""
     if not ARQ_SB1:
-        return {}
+        return {}, {}
     try:
         import openpyxl
     except ImportError:
         print("  tipo do produto: openpyxl nao instalado; pulando o SB1")
-        return {}
+        return {}, {}
 
-    tipos = {}
+    tipos, descricoes = {}, {}
     for arq in ARQ_SB1:
         try:
             wb = openpyxl.load_workbook(arq, read_only=True, data_only=True)
@@ -205,6 +205,8 @@ def ler_tipos(usados):
                 nomes = [str(v).strip() if v is not None else "" for v in linha]
                 if "Codigo" in nomes and "Tipo" in nomes and "Filial" in nomes:
                     colunas = {n: nomes.index(n) for n in ("Filial", "Tipo", "Codigo")}
+                    if "Descricao" in nomes:
+                        colunas["Descricao"] = nomes.index("Descricao")
                 continue
             bruto = linha[colunas["Codigo"]]
             if bruto is None:
@@ -212,15 +214,18 @@ def ler_tipos(usados):
             cod = codigo(bruto)
             if cod not in usados:
                 continue
-            tipo = str(linha[colunas["Tipo"]] or "").strip()
-            if not tipo:
-                continue
             fil = str(linha[colunas["Filial"]] or "").strip()
             try:
                 fil = str(int(float(fil))).zfill(2)
             except ValueError:
                 fil = fil.zfill(2)
-            tipos[fil + "|" + cod] = tipo
+            tipo = str(linha[colunas["Tipo"]] or "").strip()
+            if tipo:
+                tipos[fil + "|" + cod] = tipo
+            if "Descricao" in colunas:
+                desc = str(linha[colunas["Descricao"]] or "").strip()
+                if desc:
+                    descricoes[fil + "|" + cod] = desc
         wb.close()
         if colunas is None:
             print(f"  tipo do produto: {arq.name} sem as colunas Filial, Tipo e Codigo")
@@ -231,7 +236,7 @@ def ler_tipos(usados):
             contagem[t] = contagem.get(t, 0) + 1
         resumo = ", ".join(f"{t} {n}" for t, n in sorted(contagem.items(), key=lambda x: -x[1])[:8])
         print(f"  tipo do produto: {len(tipos)} itens classificados ({resumo})")
-    return tipos
+    return tipos, descricoes
 
 
 def ler_centros_de_custo():
@@ -336,7 +341,7 @@ def ler_saldos():
     descricoes = {}
     for _, r in sb2.iterrows():
         if r["desc"] and r["desc"] != "nan":
-            descricoes.setdefault(r["cod"], r["desc"])
+            descricoes.setdefault(r["fil"] + "|" + r["cod"], r["desc"])
     return saldos, descricoes
 
 
@@ -358,12 +363,13 @@ def gravar_historico(saida, reposicao):
     def idade(linha):
         return (hoje - date.fromisoformat(linha[j["emissao"]])).days
 
-    pedidos = [l for l in saida["pc"] if l[i["pp"]] == 2]
-    solic = [l for l in saida["sc"] if l[j["pp"]] == 2]
+    pedidos = saida["pc"]
+    solic = saida["sc"]
     vencidos = [l for l in pedidos if atraso(l) > 0]
 
     retrato = {
         "data": hoje.isoformat(),
+        "v": 2,                       # critério do retrato: carteira inteira, como a tela mostra
         "pedidos": len(pedidos),
         "vencidos": len(vencidos),
         "valor_vencido": round(sum(l[i["qtd"]] * l[i["preco"]] for l in vencidos), 2),
@@ -444,12 +450,15 @@ def main():
     # no SBZ, mas sem nível de reposição definido. Entra como "não tem".
     com_nivel = {c: v for c, v in parm.items() if v[0] > 0}
 
-    # melhor parâmetro do produto em qualquer filial, usado quando falta cadastro na filial da linha
-    por_codigo = {}
+    # Melhor parâmetro do produto nas outras filiais — mas só dentro do mesmo grupo de
+    # empresas. Entre grupos diferentes o mesmo código costuma ser outro produto:
+    # 040800623 é saco de lixo no grupo 02 e retentor CAT no grupo 10.
+    por_grupo = {}
     for chave, valor in com_nivel.items():
-        cod = chave.split("|")[1]
-        if cod not in por_codigo or valor[0] > por_codigo[cod][0]:
-            por_codigo[cod] = valor
+        fil, cod = chave.split("|")
+        k = fil[:2] + "|" + cod
+        if k not in por_grupo or valor[0] > por_grupo[k][0]:
+            por_grupo[k] = valor
 
     zerados = len(parm) - len(com_nivel)
     if zerados:
@@ -459,8 +468,8 @@ def main():
         """2 = tem ponto de pedido na filial, 1 = em outra filial, 0 = não tem."""
         if fil + "|" + cod in com_nivel:
             return 2, com_nivel[fil + "|" + cod]
-        if cod in por_codigo:
-            return 1, por_codigo[cod]
+        if fil[:2] + "|" + cod in por_grupo:
+            return 1, por_grupo[fil[:2] + "|" + cod]
         vazio = [0, 0, 0, 0, 0, 0, "", "", "", ""]
         if fil + "|" + cod in parm:          # existe no SBZ, porém sem nível: mantém o saldo
             vazio = list(parm[fil + "|" + cod])
@@ -524,18 +533,29 @@ def main():
         nomes.setdefault(linha[0], linha[1])
 
     # itens abaixo do ponto de pedido
-    descricoes = {}
+    # descrição vista em documentos, guardada por filial e por grupo de empresas
+    desc_filial, desc_grupo = {}, {}
     for linha in pedidos:
-        descricoes[linha[3]] = linha[4]
+        desc_filial.setdefault(linha[0] + "|" + linha[3], linha[4])
+        desc_grupo.setdefault(linha[0][:2] + "|" + linha[3], linha[4])
     for linha in solicitacoes:
-        descricoes.setdefault(linha[4], linha[5])
+        desc_filial.setdefault(linha[0] + "|" + linha[4], linha[5])
+        desc_grupo.setdefault(linha[0][:2] + "|" + linha[4], linha[5])
+
+    def descricao_de(fil, cod):
+        """Nunca pega a descrição de outro grupo de empresas: lá o código pode ser
+        um produto completamente diferente."""
+        return (desc_sb2.get(fil + "|" + cod)            # ficha de estoque da própria filial
+                or desc_sb1.get(fil[:2] + "|" + cod)     # cadastro do produto no grupo
+                or desc_filial.get(fil + "|" + cod)      # como aparece nos documentos da filial
+                or desc_grupo.get(fil[:2] + "|" + cod)   # como aparece em outra filial do grupo
+                or "Sem descrição no cadastro")
 
     reposicao = []
     for chave in sorted(abaixo):
         fil, cod = chave.split("|")
         v = parm_todo[chave]
-        reposicao.append([fil, nomes.get(fil, fil), cod,
-                          descricoes.get(cod) or desc_sb2.get(cod, "Sem descrição no cadastro"),
+        reposicao.append([fil, nomes.get(fil, fil), cod, descricao_de(fil, cod),
                           float(v[0]), float(v[1]), float(v[10])])
 
     # descrições de centro de custo e classe de valor, relacionadas por filial
@@ -548,7 +568,8 @@ def main():
     for fil in usos:
         usos[fil].discard("")
 
-    tipos = ler_tipos(usados)
+    usados |= {c.split("|")[1] for c in abaixo}      # itens que só aparecem na Reposição
+    tipos, desc_sb1 = ler_tipos(usados)
     nomes_cc = ler_centros_de_custo()
     nomes_cl = relacionar_classes(ler_tabelas_de_classe(), usos)
 
