@@ -1689,7 +1689,9 @@ function popularFiltros(){
 
 /* centro de custo e classe de valor mudam de descrição conforme a filial,
    então a lista é refeita sempre que a filial muda */
-const SEM_PREENCHER = '\u0000vazio';   /* valor reservado para "sem preenchimento" */
+/* Valor reservado para "em branco". Tem de ser texto comum: caractere de controle
+   é trocado pelo navegador ao montar a página e a comparação deixa de bater. */
+const SEM_PREENCHER = '--sem-preenchimento--';
 
 function popularContas(){
   const fil = document.getElementById('fFil').value;
