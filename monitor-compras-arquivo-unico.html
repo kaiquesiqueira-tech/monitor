@@ -407,7 +407,7 @@ tbody tr:hover .sev{width:7px}
 <div class="filters" id="filters">
   <div class="linha1">
     <div class="f busca"><label for="q">Buscar</label>
-      <input type="search" id="q" placeholder="digite qualquer parte: oleo mobil, filtro cat, 020100033, 10/02/2026…"></div>
+      <input type="search" id="q" placeholder="código, nº do pedido ou da SC, ou palavras da descrição"></div>
     <div class="f"><label for="fFil">Filial</label><select id="fFil"></select></div>
     <div class="f" id="wDias"><label for="fSit">Situação</label><select id="fSit"></select></div>
     <div class="f"><label>&nbsp;</label>
@@ -634,24 +634,62 @@ function pertinho(a, b, limite){
   return linha[b.length] <= limite;
 }
 
-function quaseIgual(termo, texto){
-  const limite = termo.length >= 7 ? 2 : (termo.length >= 4 ? 1 : 0);
-  if(!limite) return false;
-  for(const palavra of texto.split(' '))
-    if(palavra && pertinho(termo, palavra, limite)) return true;
-  return false;
-}
-
 let buscaAproximada = false;
 /* O texto de busca de cada linha é montado uma vez só e guardado nela.
    Antes era remontado a cada tecla digitada, em todas as linhas. */
-function textoBusca(r){
-  if(r._hay) return r._hay;
-  const datas = r.emissao ? df(r.emissao)+' '+r.emissao.replace(/-/g,'/')+' '+df(r.emissao).slice(3) : '';
-  return r._hay = normalizar(r.produto+' '+r.desc+' '+(r.pedido||'')+' '+(r.sc||'')+' '+
-                 (r.forn||'')+' '+(r.fornnome||'')+' '+(r.comprador||'')+' '+
-                 (r.cc||'')+' '+nomeCC(r)+' '+(r.classe||'')+' '+nomeCL(r)+' '+
-                 tipoDe(r)+' '+(r.um||'')+' '+datas);
+/* A busca separa o que é identificador do que é texto, como a consulta do Protheus:
+
+   - número puro (020100033, 1396, 72449) procura só em código de produto, pedido,
+     solicitação, item e data. Com ou sem os zeros da frente. Não casa com pedaço
+     solto no meio de outro número nem dentro da descrição;
+   - palavra procura no começo das palavras da descrição, do fornecedor, do comprador,
+     do centro de custo e da classe. "cat" acha CAT e CATRACA, mas não acha ESCAVADEIRA
+     só porque tem as letras no meio.                                                   */
+function indices(r){
+  if(r._pal) return r;
+  const ids = new Set();
+  const guardar = v => {
+    if(v === undefined || v === null || v === '') return;
+    const t = String(v).trim().toLowerCase();
+    if(!t) return;
+    ids.add(t);
+    const semZero = t.replace(/^0+/, '');
+    if(semZero) ids.add(semZero);
+  };
+  guardar(r.produto); guardar(r.pedido); guardar(r.sc);
+  guardar(r.cc); guardar(r.classe); guardar(r.grupo);
+  /* o número do item da solicitação fica de fora: é sequencial e só faria barulho */
+
+  const datas = r.emissao
+    ? [df(r.emissao), r.emissao.replace(/-/g,'/'), df(r.emissao).slice(3), r.emissao.slice(0,4)]
+    : [];
+  if(r.entrega) datas.push(df(r.entrega), r.entrega.replace(/-/g,'/'));
+
+  const texto = normalizar([r.desc, r.fornnome, r.forn, r.comprador, r.solicitante,
+                            nomeCC(r), nomeCL(r), tipoDe(r), r.um, r.emp].filter(Boolean).join(' '));
+  r._ids = [...ids];
+  r._datas = datas.join(' ').toLowerCase();
+  r._pal = texto.split(' ').filter(Boolean);
+  return r;
+}
+
+function casaTermo(r, termo){
+  indices(r);
+  if(/^\d+$/.test(termo)){                       // número: só identificador ou data
+    return r._ids.some(id => id === termo || id.startsWith(termo))
+        || r._datas.includes(termo);
+  }
+  if(termo.includes('/')) return r._datas.includes(termo) || r._ids.some(id => id.startsWith(termo));
+  return r._pal.some(p => p.startsWith(termo))     // palavra: casa pelo começo
+      || r._ids.some(id => id.startsWith(termo));
+}
+
+/* usado só quando nada é encontrado: aceita um deslize de digitação na descrição */
+function casaParecido(r, termo){
+  indices(r);
+  if(/^\d+$/.test(termo) || termo.length < 4) return false;
+  const limite = termo.length >= 7 ? 2 : 1;
+  return r._pal.some(p => pertinho(termo, p, limite));
 }
 
 function filtrar(rows){
@@ -674,15 +712,13 @@ function filtrar(rows){
   buscaAproximada = false;
   if(!termos.length) return base;
 
-  /* primeiro o que bate letra por letra, em qualquer ordem */
-  const exatos = base.filter(r => { const t = textoBusca(r); return termos.every(x => t.includes(x)); });
+  /* primeiro o que bate de verdade, em qualquer ordem */
+  const exatos = base.filter(r => termos.every(x => casaTermo(r, x)));
   if(exatos.length) return exatos;
 
-  /* nada encontrado: aceita um errinho de digitação em cada palavra */
-  const parecidos = base.filter(r => {
-    const t = textoBusca(r);
-    return termos.every(x => t.includes(x) || quaseIgual(x, t));
-  });
+  /* nada encontrado: aceita um errinho de digitação nas palavras */
+  const parecidos = base.filter(r =>
+    termos.every(x => casaTermo(r, x) || casaParecido(r, x)));
   buscaAproximada = parecidos.length > 0;
   return parecidos;
 }
