@@ -295,6 +295,13 @@ tbody tr:hover .sev{width:7px}
 #impStatus .st.fim{border-left-color:var(--s0)}
 #impStatus ul{margin:7px 0 0;padding-left:18px;color:var(--muted)}
 
+.publica{margin-top:22px;padding-top:20px;border-top:1px solid var(--line)}
+.publica h3{margin:0 0 6px}
+.pubgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px 14px;margin-bottom:12px}
+.pubgrid input{width:100%}
+.lembrar{display:inline-flex;align-items:center;gap:8px;font-size:13.5px;color:var(--muted)}
+.lembrar input{width:16px;height:16px}
+
 /* ---------- instalar o monitor no aparelho ---------- */
 #scrimInst{position:fixed;inset:0;background:var(--veu);opacity:0;pointer-events:none;transition:opacity .18s;z-index:80}
 #scrimInst.on{opacity:1;pointer-events:auto}
@@ -486,6 +493,26 @@ tbody tr:hover .sev{width:7px}
       <button class="btn ghost" id="btBaixarBase" onclick="baixarBase()" style="display:none">Baixar dados.js</button>
     </div>
     <div id="impStatus"></div>
+
+    <div class="publica" id="publica" style="display:none">
+      <h3>Publicar para todos</h3>
+      <p class="impp">Envia a base direto para o repositório, sem abrir pasta nenhuma. Em poucos
+        minutos todos os aparelhos trocam sozinhos. Precisa de um token do GitHub com permissão
+        de escrita neste repositório; ele fica guardado só neste aparelho.</p>
+      <div class="pubgrid">
+        <div class="f"><label for="gitDono">Dono do repositório</label><input type="text" id="gitDono" autocomplete="off"></div>
+        <div class="f"><label for="gitRepo">Repositório</label><input type="text" id="gitRepo" autocomplete="off"></div>
+        <div class="f"><label for="tokenGit">Token</label><input type="password" id="tokenGit" placeholder="github_pat_…" autocomplete="off"></div>
+      </div>
+      <label class="lembrar"><input type="checkbox" id="lembrarToken" checked> Lembrar o token neste aparelho</label>
+      <p class="subcard" style="margin:10px 0 0">Para criar o token: github.com/settings/tokens, aba
+        <b>Fine-grained tokens</b>, acesso só a este repositório, permissão <b>Contents: Read and write</b>.
+        Guarde-o como se fosse senha: quem tiver o token pode escrever no repositório.</p>
+      <div class="imp-acoes">
+        <button class="btn" id="btPublicar" onclick="publicarParaTodos()">Publicar para todos</button>
+        <button class="btn ghost" onclick="esquecerToken()">Esquecer o token</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -2102,6 +2129,8 @@ async function processarArquivos(){
       Substituiu a base de ${df(antes)} em ${((Date.now()-comecou)/1000).toFixed(0)} segundos.
       Isso vale só neste aparelho: para todo mundo ver, baixe o dados.js e substitua o do repositório.`, 'fim');
     document.getElementById('btBaixarBase').style.display = '';
+    document.getElementById('publica').style.display = '';
+    prepararPublicacao();
   }catch(e){
     avisoImp('<b>Não deu para carregar.</b> ' + esc(e && e.message ? e.message : e), 'erro');
   }finally{
@@ -2124,6 +2153,136 @@ function baseAtual(){
     `${DADOS.pc.length.toLocaleString('pt-BR')} linhas de pedido, ${DADOS.sc.length.toLocaleString('pt-BR')} de solicitação ` +
     `e ${(DADOS.rep || []).length.toLocaleString('pt-BR')} itens abaixo do ponto de pedido. ` +
     `Carregar arquivos novos substitui tudo isso.`;
+}
+
+
+/* ============ PUBLICAR PARA TODOS, DIRETO DO APP ============
+   O app envia o dados.js para o repositório pela API do GitHub. É preciso um
+   token de acesso, que fica guardado só neste aparelho e nunca entra no
+   arquivo publicado — se entrasse, qualquer visitante teria permissão de
+   escrita no repositório.                                                    */
+
+const TOKEN_CHAVE = 'monitor_token_github';
+let tokenMemoria = null;
+
+function lerToken(){
+  if(tokenMemoria) return tokenMemoria;
+  try{ return localStorage.getItem(TOKEN_CHAVE) || ''; }catch(e){ return ''; }
+}
+function guardarToken(t, lembrar){
+  tokenMemoria = t;
+  try{ if(lembrar) localStorage.setItem(TOKEN_CHAVE, t); else localStorage.removeItem(TOKEN_CHAVE); }catch(e){}
+}
+function esquecerToken(){
+  tokenMemoria = null;
+  try{ localStorage.removeItem(TOKEN_CHAVE); }catch(e){}
+  document.getElementById('tokenGit').value = '';
+  avisoImp('Token esquecido neste aparelho.');
+}
+
+/* dono e nome do repositório deduzidos do próprio endereço */
+function repoDoEndereco(){
+  const dono = (location.hostname.match(/^([^.]+)\.github\.io$/) || [])[1] || '';
+  const nome = (location.pathname.split('/').filter(Boolean)[0]) || (dono ? dono + '.github.io' : '');
+  return { dono, nome };
+}
+
+const base64De = texto => {
+  const bytes = new TextEncoder().encode(texto);
+  let bruto = '';
+  for(let i = 0; i < bytes.length; i += 0x8000)
+    bruto += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(bruto);
+};
+
+async function chamarGitHub(caminho, opcoes, token){
+  const r = await fetch('https://api.github.com' + caminho, {
+    ...opcoes,
+    headers: { 'Accept':'application/vnd.github+json', 'Authorization':'Bearer ' + token,
+               'X-GitHub-Api-Version':'2022-11-28', ...(opcoes.headers || {}) }
+  });
+  if(r.status === 401) throw new Error('token recusado: confira se copiou inteiro e se ainda é válido');
+  if(r.status === 403) throw new Error('token sem permissão de escrita neste repositório');
+  if(r.status === 404) throw new Error('repositório ou arquivo não encontrado: confira dono, nome e se o token enxerga este repositório');
+  if(!r.ok && r.status !== 409) throw new Error('o GitHub respondeu ' + r.status + ' ' + r.statusText);
+  return r;
+}
+
+async function enviarArquivo(dono, nome, arquivo, conteudo, token, mensagem){
+  const caminho = `/repos/${dono}/${nome}/contents/${arquivo}`;
+  let sha = null;
+  const atual = await fetch('https://api.github.com' + caminho + '?ref=HEAD', {
+    headers:{ 'Authorization':'Bearer ' + token, 'Accept':'application/vnd.github+json' } });
+  if(atual.ok) sha = (await atual.json()).sha;
+
+  const r = await chamarGitHub(caminho, {
+    method:'PUT',
+    body: JSON.stringify({ message: mensagem, content: base64De(conteudo), ...(sha ? {sha} : {}) })
+  }, token);
+  if(r.status === 409) throw new Error('alguém publicou ao mesmo tempo; tente de novo');
+  return true;
+}
+
+/* retrato do dia, no mesmo formato do gerador */
+function historicoAtualizado(){
+  const hoje = DADOS.gerado;
+  const venc = PC.filter(r => r.atraso > 0);
+  const retrato = {
+    data: hoje, v: 2,
+    pedidos: PC.length,
+    vencidos: venc.length,
+    valor_vencido: Math.round(venc.reduce((s,r) => s + r.valor, 0) * 100) / 100,
+    solicitacoes: SC.length,
+    paradas30: SC.filter(r => r.idade > 30).length,
+    abaixo_pp: REP.length
+  };
+  const antigos = (window.HISTORICO || []).filter(r => r && r.data !== hoje);
+  antigos.push(retrato);
+  antigos.sort((a,b) => a.data < b.data ? -1 : 1);
+  return antigos.slice(-120);
+}
+
+async function publicarParaTodos(){
+  if(!baseImportada){ avisoImp('Carregue os arquivos primeiro.', 'erro'); return; }
+  const token = document.getElementById('tokenGit').value.trim() || lerToken();
+  const dono = document.getElementById('gitDono').value.trim();
+  const nome = document.getElementById('gitRepo').value.trim();
+  if(!token){ avisoImp('Cole o token do GitHub para publicar.', 'erro'); return; }
+  if(!dono || !nome){ avisoImp('Preencha o dono e o nome do repositório.', 'erro'); return; }
+
+  const bt = document.getElementById('btPublicar');
+  bt.disabled = true; bt.textContent = 'Publicando…';
+  try{
+    guardarToken(token, document.getElementById('lembrarToken').checked);
+    const carimbo = df(DADOS.gerado) + (DADOS.hora ? ' ' + DADOS.hora : '');
+
+    avisoImp('Enviando o dados.js…');
+    await enviarArquivo(dono, nome, 'dados.js',
+      'window.DADOS=' + JSON.stringify(baseImportada) + ';\n', token, 'atualiza base ' + carimbo);
+
+    avisoImp('Enviando o histórico…');
+    const hist = historicoAtualizado();
+    window.HISTORICO = hist;
+    await enviarArquivo(dono, nome, 'historico.js',
+      'window.HISTORICO=' + JSON.stringify(hist) + ';\n', token, 'retrato de ' + carimbo);
+
+    avisoImp('<b>Publicado para todos.</b> O GitHub leva de trinta segundos a dois minutos para ' +
+             'servir o arquivo novo; depois disso, cada aparelho troca de base sozinho em segundos.', 'fim');
+  }catch(e){
+    avisoImp('<b>Não deu para publicar.</b> ' + esc(e && e.message ? e.message : e) +
+             '<br>A base continua trocada neste aparelho. Se preferir, use o Baixar dados.js.', 'erro');
+  }finally{
+    bt.disabled = false; bt.textContent = 'Publicar para todos';
+  }
+}
+
+function prepararPublicacao(){
+  const { dono, nome } = repoDoEndereco();
+  const d = document.getElementById('gitDono'), n = document.getElementById('gitRepo');
+  if(d && !d.value) d.value = dono;
+  if(n && !n.value) n.value = nome;
+  const t = document.getElementById('tokenGit');
+  if(t && !t.value) t.value = lerToken();
 }
 
 /* ---------- instalar como aplicativo ---------- */
