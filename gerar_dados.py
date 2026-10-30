@@ -82,12 +82,15 @@ def conferir_arquivos():
 
 
 def texto_codigo(v):
-    """Códigos vêm como número na exportação; viram texto sem o .0."""
+    """Código de centro de custo ou classe de valor, sem o .0 e sem zeros na frente."""
     if v is None or (isinstance(v, float) and pd.isna(v)):
         return ""
     if isinstance(v, float) and v.is_integer():
-        return str(int(v))
-    return str(v).strip()
+        bruto = str(int(v))
+    else:
+        bruto = str(v).strip()
+    limpo = bruto.lstrip("0")
+    return limpo if limpo else bruto
 
 
 def codigo(v):
@@ -489,12 +492,17 @@ def main():
         print(f"  solicitante: coluna '{col_solic}'")
 
     def texto(valor):
-        """Centro de custo e classe de valor vêm como número; viram texto sem o .0."""
+        """Centro de custo e classe de valor: o Excel às vezes entrega como número e
+        às vezes como texto com zero na frente. Os zeros da frente são descartados
+        para que documento e tabela de descrição sempre casem."""
         if pd.isna(valor):
             return ""
         if isinstance(valor, float) and valor.is_integer():
-            return str(int(valor))
-        return str(valor).strip()
+            bruto = str(int(valor))
+        else:
+            bruto = str(valor).strip()
+        limpo = bruto.lstrip("0")
+        return limpo if limpo else bruto
 
     pedidos = []
     for _, r in pc.iterrows():
