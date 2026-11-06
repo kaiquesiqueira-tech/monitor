@@ -1600,6 +1600,9 @@ const INTERVALO_APP = 60*1000;          // a versão do app, de minuto em minuto
 let ultimoApp = 0;
 const VERSAO_APP = 'app 15/09/2026';
 let marcaBase = null, checando = false;
+/* enquanto houver base importada à mão nesta tela, a troca automática não entra em
+   cima dela: senão a importação some sozinha segundos depois, sem explicação */
+let baseLocal = false, avisouPublicada = false;
 let marcaApp = null, appDiferente = 0;
 
 function mostrarAviso(texto){
@@ -1664,7 +1667,15 @@ async function verificarBase(){
     const marca = await marcaRemota();
     if(marca){
       if(marcaBase === null) marcaBase = marca;
-      else if(marca !== marcaBase){ marcaBase = marca; await trocarPelaBaseNova(); }
+      else if(marca !== marcaBase){
+        marcaBase = marca;
+        if(baseLocal){
+          if(!avisouPublicada){
+            avisouPublicada = true;
+            mostrarAviso('Outra pessoa publicou uma base nova. A que você importou continua na tela; recarregue a página para ver a publicada.');
+          }
+        } else await trocarPelaBaseNova();
+      }
     }
   }catch(e){ /* sem rede: segue com a base que já está carregada */ }
   finally{ checando = false; }
@@ -2124,6 +2135,7 @@ async function processarArquivos(){
 
     DADOS = nova; window.DADOS = nova;
     baseImportada = nova;
+    baseLocal = true; avisouPublicada = false;
     PC.length = 0; SC.length = 0;
     montar(); carimbo(); popularFiltros(); render();
 
@@ -2274,6 +2286,7 @@ async function publicarParaTodos(){
     await enviarArquivo(dono, nome, 'historico.js',
       'window.HISTORICO=' + JSON.stringify(hist) + ';\n', token, 'retrato de ' + carimbo);
 
+    baseLocal = false; avisouPublicada = false;
     avisoImp('<b>Publicado para todos.</b> O GitHub leva de trinta segundos a dois minutos para ' +
              'servir o arquivo novo; depois disso, cada aparelho troca de base sozinho em segundos.', 'fim');
   }catch(e){
