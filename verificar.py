@@ -118,7 +118,29 @@ def conteudo_util():
     return hashlib.sha1("".join(partes).encode("utf-8")).hexdigest()
 
 
+def sincronizar():
+    """Traz o que foi publicado pelo app antes de gerar. Sem isso, o push é recusado
+    com 'fetch first': o GitHub tem commits que esta máquina não conhece.
+    Em conflito nos arquivos gerados, fica com os daqui — eles são refeitos em seguida."""
+    if rodar("git fetch origin").returncode != 0:
+        return True                      # sem rede agora; o push adiante dirá o que houve
+    ramo = rodar("git rev-parse --abbrev-ref HEAD").stdout.strip() or "main"
+    atras = rodar(f"git rev-list --count HEAD..origin/{ramo}").stdout.strip()
+    if atras in ("", "0"):
+        return True
+    log(f"O GitHub tem {atras} publicacao(oes) que esta maquina nao tinha. Juntando antes de gerar.")
+    junta = rodar(f'git merge --no-edit -X ours origin/{ramo}')
+    if junta.returncode != 0:
+        rodar("git merge --abort")
+        log("Nao consegui juntar sozinho. Rode 'git pull' uma vez na pasta e tente de novo.")
+        return False
+    return True
+
+
 def publicar(sempre=False):
+    if not sincronizar():
+        return False
+
     saida = rodar(f'"{sys.executable}" gerar_dados.py')
     if saida.returncode != 0:
         ultima = (saida.stderr or saida.stdout or "").strip().splitlines()
@@ -144,7 +166,14 @@ def publicar(sempre=False):
     if rodar(f'git commit -m "atualiza base {agora}"').returncode != 0:
         log("O commit falhou.")
         return False
-    if rodar("git push").returncode != 0:
+    envio = rodar("git push")
+    if envio.returncode != 0:
+        if "fetch first" in (envio.stderr or "") or "rejected" in (envio.stderr or ""):
+            log("Envio recusado: alguém publicou nesse meio tempo. Juntando e tentando de novo.")
+            if sincronizar() and rodar("git push").returncode == 0:
+                guardar_estado(conteudo=marca)
+                log("Publicado na segunda tentativa.")
+                return True
         log("O envio falhou. Tento de novo na próxima passada.")
         return False
 
