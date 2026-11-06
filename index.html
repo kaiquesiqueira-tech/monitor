@@ -439,7 +439,7 @@ tbody tr:hover .sev{width:7px}
 <div class="filters" id="filters">
   <div class="linha1">
     <div class="f busca"><label for="q">Buscar</label>
-      <input type="search" id="q" placeholder="código, nº do pedido ou da SC, ou palavras da descrição"></div>
+      <input type="search" id="q" placeholder="código, nº do pedido, palavra ou referência da descrição"></div>
     <div class="f"><label for="fFil">Filial</label><select id="fFil"></select></div>
     <div class="f" id="wDias"><label for="fSit">Situação</label><select id="fSit"></select></div>
     <div class="f"><label>&nbsp;</label>
@@ -741,19 +741,27 @@ function indices(r){
                             nomeCC(r), nomeCL(r), tipoDe(r), r.um, r.emp].filter(Boolean).join(' '));
   r._ids = [...ids];
   r._datas = datas.join(' ').toLowerCase();
-  r._pal = texto.split(' ').filter(Boolean);
+  r._texto = texto;
+  /* as palavras também se partem na barra, no hífen e na vírgula, porque é assim que
+     a referência costuma vir grudada: "CAT 107-3945", "PACK 60DD/75/100", "M12-1,75" */
+  r._pal = texto.split(/[ /]+/).filter(Boolean);
   return r;
 }
 
 function casaTermo(r, termo){
   indices(r);
-  if(/^\d+$/.test(termo)){                       // número: só identificador ou data
+  const dentro = termo.length >= 4 && r._texto.includes(termo);   // referência no meio
+  if(/^\d+$/.test(termo)){                       // número: identificador, data ou palavra
     return r._ids.some(id => id === termo || id.startsWith(termo))
-        || r._datas.includes(termo);
+        || r._datas.includes(termo)
+        || r._pal.some(p => p.startsWith(termo))
+        || dentro;
   }
-  if(termo.includes('/')) return r._datas.includes(termo) || r._ids.some(id => id.startsWith(termo));
+  if(termo.includes('/')) return r._datas.includes(termo) || r._texto.includes(termo)
+                              || r._ids.some(id => id.startsWith(termo));
   return r._pal.some(p => p.startsWith(termo))     // palavra: casa pelo começo
-      || r._ids.some(id => id.startsWith(termo));
+      || r._ids.some(id => id.startsWith(termo))
+      || dentro;
 }
 
 /* usado só quando nada é encontrado: aceita um deslize de digitação na descrição */

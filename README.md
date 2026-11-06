@@ -39,12 +39,24 @@ Abra o `index.html` com duplo clique. Funciona direto do disco, sem servidor.
 > hospede em um servidor interno da empresa, no SharePoint, ou use uma conta
 > GitHub Enterprise, que permite Pages com acesso restrito.
 
+## Funciona sem internet
+
+O monitor guarda no aparelho a tela e a última base carregada. Abrindo sem conexão, ele
+mostra tudo o que já tinha, inclusive a ficha dos produtos, os filtros, o Excel e o texto
+do WhatsApp. O cabeçalho avisa "sem conexão, usando a última base baixada". Quando a
+internet volta, ele busca a base nova sozinho, sem recarregar a página.
+
+A abertura também ficou mais rápida: a tela vem do próprio aparelho e a rede é consultada
+em paralelo, só para atualizar o que mudou.
+
 ## Instalando no celular
 
-Abra o endereço no navegador do celular e use **Adicionar à tela de início**
-(Android: menu do Chrome; iPhone: botão de compartilhar no Safari). Ele passa a abrir
-em tela cheia, com ícone próprio, e continua funcionando sem internet com a última
-base que foi carregada.
+Abrindo o endereço no celular aparece o botão **Instalar** no cabeçalho. No Android ele
+chama o instalador do próprio navegador; no iPhone mostra o passo a passo do Safari, que
+não tem instalação automática. No computador o botão também aparece, no Chrome e no Edge.
+
+Instalado, o monitor abre pelo ícone, em tela cheia, sem a barra do navegador, e continua
+funcionando sem internet com a última base baixada. Quem já instalou não vê mais o botão.
 
 ## Atualizando a base pelo script
 
@@ -57,6 +69,7 @@ Alternativa para quem prefere linha de comando, ou para deixar automatizado:
    - `dados/SALDO_FISICO_02.xlsx` e `dados/SALDO_FISICO_10.xlsx` — SB2, saldo em estoque
      (qualquer arquivo começando com `SALDO` é lido; são dois porque as filiais estão
      em grupos diferentes no Protheus)
+   - `dados/SB1.xlsx` — cadastro de produtos, usado só para o tipo (MC, ME, EP, SV…)
    - `dados/CENTRO_DE_CUSTO.xlsx` — descrição dos centros de custo (já traz a filial)
    - `dados/CLASSE_DE_VALOR_*.xlsx` — descrição das classes de valor, uma tabela por
      empresa. Como o arquivo não diz a filial, o gerador descobre sozinho qual tabela
@@ -76,17 +89,35 @@ na tela: os totais e a lista dos doze itens mais críticos, cada um com número 
 ou da solicitação, código do produto, data de emissão e descrição.
 
 No celular abre a caixa de compartilhamento do aparelho já com a planilha em anexo, então
-o Excel vai junto com o texto. No computador abre o WhatsApp Web com a mensagem pronta,
-só faltando escolher o contato ou o grupo — nesse caso o anexo não vai junto, use o
-Baixar Excel se precisar do arquivo.
+o Excel vai junto com o texto. No computador vai direto para o WhatsApp Web, em
+`web.whatsapp.com`, com a mensagem pronta — só falta escolher o contato ou o grupo. O anexo
+não vai junto nesse caminho; para o arquivo, use o Baixar Excel.
+
+A mensagem também é copiada para a área de transferência, então, se o navegador bloquear a
+janela ou o WhatsApp Web pedir login, basta colar.
 
 A troca de base é feita só pelo computador, com o `sincronizar.bat` ou o `publicar.bat`.
 
 ## Busca
 
-O campo **Buscar** varre descrição, código do produto, número do pedido ou da solicitação,
-fornecedor, comprador e a data de emissão. A data aceita vários formatos: `10/02/2026`,
-`10.02.2026`, `02/2026` para o mês inteiro, `2026` para o ano e `2026-02` no formato do sistema.
+O campo **Buscar** separa o que é número do que é texto, como a consulta de produtos
+do Protheus:
+
+- **Número** procura só em código de produto, número de pedido, número de solicitação,
+  centro de custo, classe de valor, grupo e data. Com ou sem os zeros da frente:
+  `020100033` e `20100033` dão o mesmo resultado, e `72449` acha o pedido 072449.
+  Não casa com pedaço solto no meio de outro número nem com a descrição.
+- **Palavra** procura no começo das palavras da descrição, do fornecedor, do comprador,
+  do tipo, do centro de custo e da classe. `cat` acha CAT e CATRACA.
+- **Referência no meio da descrição** também é encontrada. As palavras se partem na barra,
+  no hífen e na vírgula, então `3/8`, `1,75` e `3945` acham AR. LISA 3/8, M12-1,75 e
+  RETENTOR CAT 107-3945. E qualquer trecho de quatro letras ou mais é procurado dentro das
+  palavras: `4207` acha FILTRO FLEETGUARD AF4207 e `20lt` acha PAIL 20LT.
+- Várias palavras valem em qualquer ordem: `filtro cat` e `cat filtro` dão o mesmo.
+- Acento não atrapalha nos dois sentidos, e quando nada bate exatamente ele tenta de novo
+  aceitando um erro de digitação, avisando no rodapé que são os parecidos.
+
+A data aceita `10/02/2026`, `02/2026` para o mês e `2026` para o ano.
 
 ## As abas
 
@@ -94,9 +125,6 @@ fornecedor, comprador e a data de emissão. A data aceita vários formatos: `10/
 - **Solicitações de compra** — o que ainda não virou pedido.
 - **Reposição** — itens com saldo abaixo do ponto de pedido, mostrando se já existe
   pedido ou solicitação cobrindo a falta. É a aba que evita a parada.
-- **Revisão** — solicitações repetidas, solicitação de item que já tem pedido, pedidos
-  vencidos há mais de 180 dias, itens sem ponto de pedido cadastrado, códigos com
-  descrições divergentes e ponto de pedido sem lote econômico.
 - **Resumo** — rankings, evolução dia a dia e emissões por mês, filial a filial.
 
 ## Solicitante da SC
