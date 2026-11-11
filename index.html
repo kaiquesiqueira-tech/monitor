@@ -575,6 +575,14 @@ tbody tr:hover .sev{width:7px}
       </select></div>
     <div class="f"><label for="avComprador">Pedidos de</label>
       <select id="avComprador" onchange="mudarCfgAvisos()"></select></div>
+    <div class="f"><label for="avItens">Itens</label>
+      <select id="avItens" onchange="mudarCfgAvisos()">
+        <option value="0">Todos os itens</option>
+        <option value="2">Com ponto de pedido na filial</option>
+        <option value="1">Com ponto de pedido em qualquer filial</option>
+      </select></div>
+    <div class="f"><label for="avFilial">Filial</label>
+      <select id="avFilial" onchange="mudarCfgAvisos()"></select></div>
     <div class="f"><label>&nbsp;</label>
       <button class="btn ghost" id="btAvSistema" onclick="ligarAvisosSistema()">Ligar notificações do aparelho</button></div>
   </div>
@@ -2361,17 +2369,21 @@ function prepararPublicacao(){
    Pode ser limitado ao comprador que usa o aparelho, e avisar pelo sistema.      */
 
 const CFG_CHAVE = 'monitor_avisos';
-let cfgAvisos = { dias: 3, comprador: '', sistema: false, vistos: '' };
+let cfgAvisos = { dias: 3, comprador: '', itens: 0, filial: '', sistema: false, vistos: '' };
 try{ Object.assign(cfgAvisos, JSON.parse(localStorage.getItem(CFG_CHAVE) || '{}')); }catch(e){}
 function salvarCfg(){ try{ localStorage.setItem(CFG_CHAVE, JSON.stringify(cfgAvisos)); }catch(e){} }
 
 function calcularAvisos(){
   const d = +cfgAvisos.dias || 3, quem = cfgAvisos.comprador;
-  const meus = PC.filter(r => !quem || r.comprador === quem);
+  /* mesmo critério do filtro Itens da lista: 0 todos, 2 ponto de pedido na filial,
+     1 ponto de pedido em qualquer filial do grupo; nível zerado não conta */
+  const e = +cfgAvisos.itens || 0, fil = cfgAvisos.filial;
+  const passa = r => (e === 0 || (r.pp >= e && r.ppq > 0)) && (!fil || r.filial === fil);
+  const meus = PC.filter(r => passa(r) && (!quem || r.comprador === quem));
   return {
     vencendo: meus.filter(r => r.atraso <= 0 && r.atraso >= -d).sort((a,b) => b.atraso - a.atraso),
     venceu:   meus.filter(r => r.atraso >= 1 && r.atraso <= d).sort((a,b) => a.atraso - b.atraso),
-    paradas:  SC.filter(r => r.idade > 30 && r.idade <= 30 + d).sort((a,b) => b.idade - a.idade)
+    paradas:  SC.filter(r => passa(r) && r.idade > 30 && r.idade <= 30 + d).sort((a,b) => b.idade - a.idade)
   };
 }
 
@@ -2416,6 +2428,15 @@ function renderAvisos(){
   }
   if(sel) sel.value = cfgAvisos.comprador;
   const dd = document.getElementById('avDias'); if(dd) dd.value = String(cfgAvisos.dias);
+  const it = document.getElementById('avItens'); if(it) it.value = String(+cfgAvisos.itens || 0);
+  const fl = document.getElementById('avFilial');
+  if(fl && !fl.options.length){
+    const filiais = new Map(); PC.concat(SC).forEach(r => filiais.set(r.filial, r.emp));
+    fl.innerHTML = '<option value="">Todas as filiais</option>' +
+      [...filiais].sort((a,b) => a[1] < b[1] ? -1 : 1)
+        .map(([cod, nome]) => `<option value="${esc(cod)}">${esc(nome)}</option>`).join('');
+  }
+  if(fl) fl.value = cfgAvisos.filial;
   const bs = document.getElementById('btAvSistema');
   if(bs){
     const pode = typeof Notification !== 'undefined';
@@ -2438,7 +2459,10 @@ function fecharAvisos(){
 function mudarCfgAvisos(){
   cfgAvisos.dias = +document.getElementById('avDias').value || 3;
   cfgAvisos.comprador = document.getElementById('avComprador').value;
+  cfgAvisos.itens = +document.getElementById('avItens').value || 0;
+  cfgAvisos.filial = document.getElementById('avFilial').value;
   salvarCfg(); renderAvisos();
+  marcarVistos();      // o que está na tela agora já foi visto: não vira notificação depois
 }
 
 /* assinatura do que já foi mostrado, para não repetir a mesma notificação */

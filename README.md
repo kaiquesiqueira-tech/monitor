@@ -82,6 +82,32 @@ Alternativa para quem prefere linha de comando, ou para deixar automatizado:
 Os dias de atraso são recalculados toda vez que a página abre, usando a data do dia,
 então o monitor continua correto entre uma atualização e outra.
 
+## Avisos de vencimento
+
+O sino no cabeçalho mostra, com um contador, três coisas: pedidos que vencem nos próximos
+dias, pedidos que venceram há pouco e solicitações que acabaram de passar de 30 dias
+paradas. Clicando em qualquer linha abre a ficha do item.
+
+Quatro ajustes ficam guardados no aparelho:
+
+- **Janela**: 1, 3, 5, 7 ou 15 dias.
+- **Pedidos de**: o comprador, para cada um ver só os próprios pedidos.
+- **Itens**: todos, só os que têm ponto de pedido na filial, ou só os que têm ponto de
+  pedido em qualquer filial do grupo. É o mesmo critério do filtro Itens da lista, e vale
+  para pedidos e solicitações.
+- **Filial**: uma filial ou todas.
+
+O contador do sino e a notificação do aparelho seguem esses filtros.
+
+**Notificações do aparelho.** O botão "Ligar notificações do aparelho" pede a permissão do
+navegador. A partir daí, quando chega base nova com algo que ainda não tinha sido avisado,
+aparece a notificação do sistema; clicar nela traz o monitor para a frente. Ela não repete
+o que você já viu.
+
+Limite importante: a notificação depende de o monitor estar aberto ou em segundo plano no
+aparelho. Com o aplicativo totalmente fechado, nenhum código roda, então nada dispara. Para
+avisar com o app fechado seria preciso um servidor de envio, que o GitHub Pages não oferece.
+
 ## Compartilhar no WhatsApp
 
 O botão **Enviar no WhatsApp**, ao lado do Baixar Excel, monta um resumo do que estiver
