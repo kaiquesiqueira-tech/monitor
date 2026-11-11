@@ -5,7 +5,7 @@
    sem internet, e a base nova chega sozinha porque a própria página verifica o
    dados.js a cada poucos segundos e troca os dados sem recarregar. */
 
-const CACHE = 'monitor-compras-v5';
+const CACHE = 'monitor-compras-v6';
 const SHELL = ['./', './index.html', './historico.js', './manifest.webmanifest',
                './icone.svg', './icone-180.png', './icone-192.png', './icone-512.png'];
 const BASE = ['./dados.js', './pulso.json'];
@@ -52,4 +52,13 @@ self.addEventListener('fetch', e => {
       const rede = fetch(e.request).then(r => guardar(e.request, r)).catch(() => null);
       return guardado || rede.then(r => r || caches.match('./index.html'));
     }));
+});
+
+/* clicar na notificação traz o monitor para a frente, ou abre se estiver fechado */
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(abertas => {
+    for (const c of abertas) if ('focus' in c) return c.focus();
+    return self.clients.openWindow('./');
+  }));
 });
