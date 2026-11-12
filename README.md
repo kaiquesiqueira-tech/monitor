@@ -99,6 +99,10 @@ Quatro ajustes ficam guardados no aparelho:
 
 O contador do sino e a notificação do aparelho seguem esses filtros.
 
+Ao lado do título de cada grupo há um botão **Baixar Excel**. Ele baixa o grupo inteiro,
+com os filtros do sino aplicados e as mesmas colunas da planilha da lista — inclusive as
+linhas que não cabem no painel, que mostra no máximo 40 por grupo.
+
 **Notificações do aparelho.** O botão "Ligar notificações do aparelho" pede a permissão do
 navegador. A partir daí, quando chega base nova com algo que ainda não tinha sido avisado,
 aparece a notificação do sistema; clicar nela traz o monitor para a frente. Ela não repete
@@ -177,3 +181,7 @@ O monitor abre mostrando **todos** os pedidos e todas as solicitações em abert
 **Situação** restringe para só os vencidos, vencidos há mais de 30 dias, e assim por diante.
 As faixas de cor no topo separam o que está dentro do prazo do que está vencido, em blocos de
 até 30 dias, 31 a 90, 91 a 180 e acima de 180 — clicar numa faixa filtra a lista.
+Nas solicitações o primeiro bloco é dividido em dois: até 10 dias e 11 a 30 dias. Faixa sem
+nenhum item não aparece na barra.
+As caixinhas da barra têm todas o mesmo tamanho, para o número e o rótulo sempre caberem; a
+proporção entre as faixas aparece na fita fina do alto da página.
