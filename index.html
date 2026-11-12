@@ -286,8 +286,9 @@ tbody tr:hover .sev{width:7px}
 .avtopo h2{margin:0;font-size:19px;font-weight:600}
 .avcfg{display:flex;flex-wrap:wrap;gap:10px 12px;align-items:end;padding-bottom:16px;
   border-bottom:1px solid var(--line2);margin-bottom:6px}
-#avisosCorpo h3{display:flex;align-items:center;gap:8px;margin:18px 0 6px;font-size:15px;font-weight:600}
+#avisosCorpo h3{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:18px 0 6px;font-size:15px;font-weight:600}
 #avisosCorpo h3 i{width:10px;height:10px;border-radius:50%;display:inline-block}
+#avisosCorpo .avxls{margin-left:auto;width:auto;min-height:32px;padding:5px 11px;font-size:12.5px;font-weight:500;box-shadow:none;white-space:nowrap}
 #avisosCorpo h3 .cnt{font-family:"Barlow Condensed","IBM Plex Sans",sans-serif;font-size:18px;color:var(--muted)}
 .avlista{list-style:none;margin:0;padding:0}
 .avlista li{padding:9px 0;border-bottom:1px solid var(--line2);display:flex;flex-direction:column;gap:2px;cursor:pointer}
@@ -384,6 +385,7 @@ tbody tr:hover .sev{width:7px}
   .filters select,.filters input{width:100%;min-height:44px}
   .chip{font-size:12px}
   .btn{width:100%;min-height:44px}
+  #avisosCorpo .avxls{min-height:38px}
   .dhead{padding:15px 16px 12px}
   .dbody{padding:0 16px 32px}
   .dt{font-size:12.5px}
@@ -661,7 +663,8 @@ const FX = {
       {k:'b',l:'só com solicitação',min:1,max:1,c:'var(--s2)'},
       {k:'c',l:'sem pedido nem solicitação',min:2,max:2,c:'var(--s3)'},
       {k:'d',l:'sem cobertura e sem saldo',min:3,max:3,c:'var(--s4)'}],
-  sc:[{k:'a',l:'até 30 dias',min:-1e9,max:30,c:'var(--s1)'},
+  sc:[{k:'p',l:'até 10 dias',min:-1e9,max:10,c:'var(--s0)'},
+      {k:'a',l:'11 a 30 dias',min:11,max:30,c:'var(--s1)'},
       {k:'b',l:'31 a 90 dias',min:31,max:90,c:'var(--s2)'},
       {k:'c',l:'91 a 180 dias',min:91,max:180,c:'var(--s3)'},
       {k:'d',l:'mais de 180 dias',min:181,max:1e9,c:'var(--s4)'}]
@@ -1270,9 +1273,8 @@ function opts(id,vals,label){
     vals.map(v=>`<option value="${esc(v[0])}">${esc(v[1])}</option>`).join('');
 }
 function planilhaAtual(){ return exportar(true); }
-function exportar(devolver){
-  const rows=ordenar(filtrar(baseRows()));
-  const MODELO = {
+/* colunas de cada planilha: a lista e os avisos saem iguais */
+const MODELO = {
     pc:{ aba:'Pedidos de compra',
       cab:['Filial','Empresa','Pedido','Produto','Descrição','Quantidade','UM','Preço unit.','Valor total','Emissão','Entrega','Dias de atraso','Ponto de pedido','Lote econômico','Fornecedor','Comprador','SC origem','Grupo','Tipo','Centro de custo','Centro de custo — descrição','Classe de valor','Classe de valor — descrição'],
       larg:[9,11,10,12,46,11,6,12,13,11,11,13,14,14,22,18,11,8,8,14,30,14,30],
@@ -1285,16 +1287,22 @@ function exportar(devolver){
       cab:['Filial','Empresa','Produto','Descrição','Saldo atual','Ponto de pedido','Falta','Em pedido','Em solicitação','Lote econômico','Situação','Grupo','Tipo'],
       larg:[9,11,12,46,12,15,11,11,14,15,26,8,8],
       lin:r=>[r.filial,r.emp,r.produto,r.desc,r.saldo,r.pp,r.falta,r.emPedido,r.emSC,r.lote,faixa(r.risco).l,r.grupo,tipoDe(r)] }
-  };
-  const M = MODELO[tab] || MODELO.pc;
-  const cab = M.cab, larg = M.larg, lin = M.lin, aba = M.aba;
-  const bytes = xlsx(aba,cab,rows.map(lin),larg);
-  const blob = new Blob([bytes],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
-  if(devolver) return blob;
+};
+function montarPlanilha(tipo, rows, aba){
+  const M = MODELO[tipo] || MODELO.pc;
+  const bytes = xlsx(aba || M.aba, M.cab, rows.map(M.lin), M.larg);
+  return new Blob([bytes],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+}
+function salvarPlanilha(blob, nome){
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
-  a.download='monitor_'+(tab==='pc'?'pedidos_':tab==='sc'?'solicitacoes_':'reposicao_')+new Date().toISOString().slice(0,10)+'.xlsx';
+  a.download=nome+'_'+new Date().toISOString().slice(0,10)+'.xlsx';
   a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1500);
+}
+function exportar(devolver){
+  const blob = montarPlanilha(tab, ordenar(filtrar(baseRows())));
+  if(devolver) return blob;
+  salvarPlanilha(blob, 'monitor_'+(tab==='pc'?'pedidos':tab==='sc'?'solicitacoes':'reposicao'));
 }
 
 /* ---------- gerador de xlsx (sem dependências) ---------- */
@@ -2402,8 +2410,9 @@ function renderAvisos(){
       ? 'vence em ' + (-r.atraso) + (r.atraso === -1 ? ' dia' : ' dias')
       : 'venceu há ' + r.atraso + (r.atraso === 1 ? ' dia' : ' dias'));
 
-  const bloco = (titulo, cor, linhas, montar, tipo) => !linhas.length ? '' :
-    `<h3><i style="background:${cor}"></i>${titulo} <span class="cnt">${linhas.length}</span></h3>
+  const bloco = (titulo, cor, linhas, montar, tipo, grupo) => !linhas.length ? '' :
+    `<h3><i style="background:${cor}"></i>${titulo} <span class="cnt">${linhas.length}</span>
+       <button class="btn ghost avxls" onclick="baixarAvisos('${grupo}')">Baixar Excel</button></h3>
      <ul class="avlista">${linhas.slice(0, 40).map(r =>
        `<li tabindex="0" onclick="fecharAvisos();abrir('${tipo}',${r.i})"
             onkeydown="if(event.key==='Enter'){fecharAvisos();abrir('${tipo}',${r.i})}">${montar(r)}</li>`).join('')}</ul>
@@ -2415,9 +2424,9 @@ function renderAvisos(){
     <span class="code">Solicitação ${r.sc} · ${esc(r.emp)} · parada há ${r.idade} dias</span>`;
 
   document.getElementById('avisosCorpo').innerHTML = total
-    ? bloco('Vencem nos próximos ' + d + ' dias', 'var(--s2)', a.vencendo, pedido, 'pc')
-    + bloco('Venceram nos últimos ' + d + ' dias', 'var(--s4)', a.venceu, pedido, 'pc')
-    + bloco('Solicitações que acabaram de passar de 30 dias', 'var(--s3)', a.paradas, solic, 'sc')
+    ? bloco('Vencem nos próximos ' + d + ' dias', 'var(--s2)', a.vencendo, pedido, 'pc', 'vencendo')
+    + bloco('Venceram nos últimos ' + d + ' dias', 'var(--s4)', a.venceu, pedido, 'pc', 'venceu')
+    + bloco('Solicitações que acabaram de passar de 30 dias', 'var(--s3)', a.paradas, solic, 'sc', 'paradas')
     : '<p class="subcard" style="margin:8px 0">Nada vencendo nem recém-vencido neste recorte.</p>';
 
   const sel = document.getElementById('avComprador');
@@ -2444,6 +2453,18 @@ function renderAvisos(){
     bs.textContent = (cfgAvisos.sistema && pode && Notification.permission === 'granted')
       ? 'Notificações do aparelho: ligadas' : 'Ligar notificações do aparelho';
   }
+}
+
+/* baixa o grupo inteiro, não só as 40 linhas que cabem no painel, e com os filtros do sino */
+const GRUPO_AVISO = {
+  vencendo: { tipo:'pc', aba:'Vencendo',             nome:'monitor_avisos_vencendo' },
+  venceu:   { tipo:'pc', aba:'Recem-vencidos',       nome:'monitor_avisos_recem_vencidos' },
+  paradas:  { tipo:'sc', aba:'Solicitacoes paradas', nome:'monitor_avisos_solicitacoes' }
+};
+function baixarAvisos(grupo){
+  const g = GRUPO_AVISO[grupo], linhas = g ? calcularAvisos()[grupo] : [];
+  if(!linhas.length) return;
+  salvarPlanilha(montarPlanilha(g.tipo, linhas, g.aba), g.nome);
 }
 
 function abrirAvisos(){
