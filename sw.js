@@ -5,7 +5,7 @@
    sem internet, e a base nova chega sozinha porque a própria página verifica o
    dados.js a cada poucos segundos e troca os dados sem recarregar. */
 
-const CACHE = 'monitor-compras-v6';
+const CACHE = 'monitor-compras-v7';
 const SHELL = ['./', './index.html', './historico.js', './manifest.webmanifest',
                './icone.svg', './icone-180.png', './icone-192.png', './icone-512.png'];
 const BASE = ['./dados.js', './pulso.json'];
