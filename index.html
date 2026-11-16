@@ -104,6 +104,8 @@ html[data-tema="escuro"] :focus-visible{outline-color:#8FD3B4}
 .seg::before{content:"";position:absolute;inset:0;background:linear-gradient(to bottom,rgba(255,255,255,.14),rgba(0,0,0,.06));pointer-events:none}
 .seg::after{content:"";position:absolute;left:0;right:0;top:0;height:0;background:var(--ink);transition:height .15s}
 .seg:hover{filter:brightness(1.08)}
+.strip.filtrando .seg[aria-pressed="false"]{filter:saturate(.35) brightness(.8)}
+.strip.filtrando .seg[aria-pressed="false"]:hover{filter:saturate(.7) brightness(.95)}
 .seg[aria-pressed="true"]::after{height:5px}
 .seg .n{font-family:"Barlow Condensed","IBM Plex Sans",sans-serif;font-weight:700;
   font-size:34px;line-height:1;font-variant-numeric:tabular-nums;position:relative}
@@ -130,6 +132,34 @@ nav.tabs{display:flex;gap:2px;flex-wrap:wrap;align-items:flex-end}
 .avancados{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px 14px;
   margin-top:16px;padding-top:16px;border-top:1px solid var(--line2)}
 .avancados[hidden]{display:none}
+.filters.ms-aberto{z-index:60}
+/* filtro de escolha múltipla: botão que abre uma lista de caixas de marcar */
+.ms{position:relative;min-width:0}
+.ms select{display:none}
+.msbt{font:inherit;font-size:14px;padding:7px 30px 7px 10px;background:var(--panel);color:var(--ink);
+  border:1px solid var(--line);border-radius:var(--r);min-height:36px;width:100%;min-width:170px;
+  text-align:left;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;position:relative}
+.msbt:hover{border-color:var(--muted)}
+.msbt::after{content:"";position:absolute;right:11px;top:50%;width:7px;height:7px;margin-top:-5px;
+  border-right:1.6px solid var(--muted);border-bottom:1.6px solid var(--muted);transform:rotate(45deg)}
+.msbt.on{border-color:var(--go);box-shadow:inset 3px 0 0 var(--go)}
+.msbt .q{display:inline-block;background:var(--go);color:var(--btnInk);border-radius:9px;font-size:11.5px;
+  line-height:18px;min-width:18px;padding:0 6px;text-align:center;margin-left:6px;font-weight:600}
+.mspop{position:absolute;z-index:80;top:100%;left:0;margin-top:4px;min-width:100%;width:max-content;
+  max-width:min(400px,92vw);background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
+  box-shadow:0 14px 34px -12px rgba(0,0,0,.35);padding:8px}
+.mspop[hidden]{display:none}
+.mspop.dir{left:auto;right:0}
+.mspop input[type=search]{width:100%;min-width:0;margin-bottom:6px}
+.msacoes{display:flex;gap:6px;justify-content:space-between;padding:2px 2px 6px;border-bottom:1px solid var(--line2);margin-bottom:4px}
+.msacoes button{background:none;border:none;color:var(--go);cursor:pointer;font:inherit;font-size:12.5px;padding:4px 4px}
+.msacoes button:hover{text-decoration:underline}
+.mslista{max-height:290px;overflow:auto;overscroll-behavior:contain}
+.ms .mslista label{display:flex;gap:9px;align-items:flex-start;padding:6px 6px;cursor:pointer;
+  font-size:13.5px;line-height:1.35;color:var(--ink);border-radius:2px}
+.ms .mslista label:hover{background:var(--panel2)}
+.mslista input{margin:2px 0 0;accent-color:var(--go);flex:none;width:15px;height:15px}
+.msvazio{padding:8px 6px;font-size:13px;color:var(--muted)}
 .btn.mais{display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
 .btn.mais .selo{display:none;background:var(--go);color:var(--btnInk);border-radius:9px;
   min-width:18px;height:18px;padding:0 5px;font-size:11.5px;line-height:18px;text-align:center;font-weight:600}
@@ -385,6 +415,11 @@ tbody tr:hover .sev{width:7px}
   .filters .f{min-width:0}
   .filters .spacer{display:none}
   .filters select,.filters input{width:100%;min-height:44px}
+  .msbt{min-width:0;min-height:44px}
+  .mspop{width:min(360px,calc(100vw - 32px));max-width:none}
+  .mslista{max-height:48vh}
+  .filters .mslista input{width:18px;height:18px;min-height:0}
+  .ms .mslista label{padding:10px 6px}
   .chip{font-size:12px}
   .btn{width:100%;min-height:44px}
   #avisosCorpo .avxls{min-height:38px}
@@ -457,7 +492,7 @@ tbody tr:hover .sev{width:7px}
     </div>
     <div class="strip" id="strip"></div>
   </div>
-  <div class="striphint" id="dica">Cada faixa é um intervalo de atraso. Clique para filtrar a lista.</div>
+  <div class="striphint" id="dica">Cada faixa é um intervalo de atraso. Clique em uma ou mais faixas para filtrar a lista.</div>
 </section>
 
 <nav class="tabs" role="tablist">
@@ -472,7 +507,7 @@ tbody tr:hover .sev{width:7px}
   <div class="linha1">
     <div class="f busca"><label for="q">Buscar</label>
       <input type="search" id="q" placeholder="código, nº do pedido, palavra ou referência da descrição"></div>
-    <div class="f"><label for="fFil">Filial</label><select id="fFil"></select></div>
+    <div class="f"><label for="fFil">Filial</label><select id="fFil" multiple></select></div>
     <div class="f" id="wDias"><label for="fSit">Situação</label><select id="fSit"></select></div>
     <div class="f"><label>&nbsp;</label>
       <button class="btn ghost mais" id="btMais" onclick="alternarFiltros()" aria-expanded="false">
@@ -490,12 +525,12 @@ tbody tr:hover .sev{width:7px}
         <option value="2">Com ponto de pedido na filial</option>
         <option value="1">Com ponto de pedido em qualquer filial</option>
       </select></div>
-    <div class="f" id="wTP"><label for="fTP">Tipo do produto</label><select id="fTP"></select></div>
-    <div class="f"><label for="fGru">Grupo</label><select id="fGru"></select></div>
-    <div class="f" id="wCmp"><label for="fCmp">Comprador</label><select id="fCmp"></select></div>
-    <div class="f" id="wFor"><label for="fFor">Fornecedor</label><select id="fFor"></select></div>
-    <div class="f" id="wCC"><label for="fCC">Centro de custo</label><select id="fCC"></select></div>
-    <div class="f" id="wCL"><label for="fCL">Classe de valor</label><select id="fCL"></select></div>
+    <div class="f" id="wTP"><label for="fTP">Tipo do produto</label><select id="fTP" multiple></select></div>
+    <div class="f"><label for="fGru">Grupo</label><select id="fGru" multiple></select></div>
+    <div class="f" id="wCmp"><label for="fCmp">Comprador</label><select id="fCmp" multiple></select></div>
+    <div class="f" id="wFor"><label for="fFor">Fornecedor</label><select id="fFor" multiple></select></div>
+    <div class="f" id="wCC"><label for="fCC">Centro de custo</label><select id="fCC" multiple></select></div>
+    <div class="f" id="wCL"><label for="fCL">Classe de valor</label><select id="fCL" multiple></select></div>
   </div>
 
   <div class="chips" id="chips"></div>
@@ -717,7 +752,7 @@ function montar(){
 montar();
 
 /* ---------- estado ---------- */
-let tab='pc', sel=null, sort={pc:{k:'atraso',dir:-1},sc:{k:'idade',dir:-1},rp:{k:'risco',dir:-1}};
+let tab='pc', sel=new Set(), sort={pc:{k:'atraso',dir:-1},sc:{k:'idade',dir:-1},rp:{k:'risco',dir:-1}};
 
 const COLS={
  pc:[{k:'emp',l:'Filial'},{k:'pedido',l:'Pedido'},{k:'produto',l:'Produto',main:1},
@@ -838,17 +873,20 @@ function casaParecido(r, termo){
 function filtrar(rows){
   const v = id => { const el = document.getElementById(id); return el ? el.value : ''; };
   const termos = normalizar(v('q')).split(' ').filter(Boolean);
-  const fFil = v('fFil'), fGru = v('fGru'), fCmp = v('fCmp'), fFor = v('fFor'),
-        fCC = v('fCC'), fCL = v('fCL'), fTP = v('fTP');
+  /* cada filtro pode ter várias opções marcadas; vazio = todos */
+  const S = id => { const a = valsDe(id); return a.length ? new Set(a) : null; };
+  const fFil = S('fFil'), fGru = S('fGru'), fCmp = S('fCmp'), fFor = S('fFor'),
+        fCC = S('fCC'), fCL = S('fCL'), fTP = S('fTP');
+  const temConta = (set, val) => val ? set.has(val) : set.has(SEM_PREENCHER);
   const ehPC = tab === 'pc';
   const base = rows.filter(r=>{
-    if(sel && faixa(vf(r)).k!==sel) return false;
-    if(fFil && r.filial!==fFil) return false;
-    if(fGru && r.grupo!==fGru) return false;
-    if(ehPC){ if(fCmp && r.comprador!==fCmp) return false; if(fFor && r.forn!==fFor) return false; }
-    if(fCC && (fCC===SEM_PREENCHER ? !!r.cc : r.cc!==fCC)) return false;
-    if(fCL && (fCL===SEM_PREENCHER ? !!r.classe : r.classe!==fCL)) return false;
-    if(fTP && tipoDe(r)!==fTP) return false;
+    if(sel.size && !sel.has(faixa(vf(r)).k)) return false;
+    if(fFil && !fFil.has(r.filial)) return false;
+    if(fGru && !fGru.has(r.grupo)) return false;
+    if(ehPC){ if(fCmp && !fCmp.has(r.comprador)) return false; if(fFor && !fFor.has(r.forn)) return false; }
+    if(fCC && !temConta(fCC, r.cc)) return false;
+    if(fCL && !temConta(fCL, r.classe)) return false;
+    if(fTP && !fTP.has(tipoDe(r))) return false;
     return true;
   });
 
@@ -899,7 +937,8 @@ function ativos(){
     return true;
   }).map(c=>{
     const el = document.getElementById(c.id);
-    const texto = el.tagName === 'SELECT'
+    const texto = el.multiple ? textosMarcados(el).join(', ')
+      : el.tagName === 'SELECT'
       ? (el.options[el.selectedIndex] ? el.options[el.selectedIndex].text : el.value)
       : el.value;
     return {...c, texto};
@@ -911,14 +950,14 @@ function limparUm(id){
   if(!el) return;
   el.value = (id==='fSit') ? el.options[0].value : (id==='fPP' ? '0' : '');
   if(id==='fFil') popularContas();
-  sel = null; render();
+  sel = new Set(); render();
 }
 
 function renderChips(){
   const lista = ativos();
   const caixa = document.getElementById('chips');
   caixa.innerHTML = lista.map(c =>
-    `<span class="chip"><b>${c.nome}:</b><span>${esc(c.texto)}</span>
+    `<span class="chip" title="${esc(c.nome+': '+c.texto)}"><b>${c.nome}:</b><span>${esc(c.texto)}</span>
      <button onclick="limparUm('${c.id}')" aria-label="Tirar o filtro ${c.nome}" title="Tirar este filtro">×</button></span>`
   ).join('') + (lista.length > 1
     ? '<button class="chip tudo" onclick="limpar()">Limpar tudo</button>' : '');
@@ -927,6 +966,7 @@ function renderChips(){
   const escondidos = lista.filter(c => !['q','fFil','fSit'].includes(c.id)).length;
   selo.textContent = escondidos || '';
   selo.className = 'selo' + (escondidos ? ' on' : '');
+  MULTI.forEach(msAtualizar);
 }
 
 function alternarFiltros(){
@@ -1054,8 +1094,8 @@ function renderHero(rows){
   // faixas calculadas sobre a base sem o filtro de faixa
   const all = filtrarSemFaixa();
   document.getElementById('dica').textContent = tab==='rp'
-    ? 'Cada faixa mostra se a falta já está coberta por pedido ou solicitação. Clique para filtrar a lista.'
-    : 'Cada faixa é um intervalo de atraso. Clique para filtrar a lista.';
+    ? 'Cada faixa mostra se a falta já está coberta por pedido ou solicitação. Clique em uma ou mais faixas para filtrar a lista.'
+    : 'Cada faixa é um intervalo de atraso. Clique em uma ou mais faixas para filtrar a lista.';
   /* a mesma distribuição vira uma fita fina no alto da janela */
   const fita = document.getElementById('fita');
   if(fita) fita.innerHTML = faixas().map(f=>{
@@ -1063,13 +1103,15 @@ function renderHero(rows){
     return `<i style="background:${f.c};flex:${n} 1 0"></i>`;
   }).join('');
 
-  document.getElementById('strip').innerHTML = faixas().map(f=>{
+  const stripEl = document.getElementById('strip');
+  stripEl.classList.toggle('filtrando', sel.size>0);
+  stripEl.innerHTML = faixas().map(f=>{
     const n = all.filter(r=>{const d=vf(r);return d>=f.min&&d<=f.max;}).length;
-    return `<button class="seg ${n?'':'z'}" style="background:${f.c}" aria-pressed="${sel===f.k}"
+    return `<button class="seg ${n?'':'z'}" style="background:${f.c}" aria-pressed="${sel.has(f.k)}"
       onclick="toggleFaixa('${f.k}')"><span class="n">${n}</span><span class="l">${f.l}</span></button>`;
   }).join('');
 }
-function filtrarSemFaixa(){const s=sel;sel=null;const r=filtrar(baseRows());sel=s;return r;}
+function filtrarSemFaixa(){const s=sel;sel=new Set();const r=filtrar(baseRows());sel=s;return r;}
 
 /* ---------- tendência dia a dia ---------- */
 function renderTendencia(){
@@ -1248,7 +1290,7 @@ function rank(id,pairs,fmt){
 
 /* ---------- interação ---------- */
 function setTab(t){
-  tab=t; sel=null;
+  tab=t; sel=new Set();
   ['pc','sc','rp','rs','im'].forEach(x=>document.getElementById('t-'+x).setAttribute('aria-selected',x===t));
   const lista = (t==='pc'||t==='sc'||t==='rp');
   document.getElementById('viewTable').style.display = lista?'':'none';
@@ -1265,17 +1307,111 @@ function setTab(t){
   if(lista) opts('fSit', SIT[t], null);
   render();
 }
-function toggleFaixa(k){ sel = sel===k?null:k; render(); }
+function toggleFaixa(k){ if(sel.has(k)) sel.delete(k); else sel.add(k); render(); }
 function ordena(k){ const s=sort[tab]; if(s.k===k) s.dir*=-1; else {s.k=k;s.dir=-1;} render(); }
 function limpar(){
   ['q','fFil','fGru','fCmp','fFor','fCC','fCL','fTP'].forEach(i=>document.getElementById(i).value='');
   popularContas();
   document.getElementById('fPP').value='0';
-  document.getElementById('fSit').value='-999999'; sel=null; render();
+  document.getElementById('fSit').value='-999999'; sel=new Set(); render();
 }
 function opts(id,vals,label){
-  document.getElementById(id).innerHTML=(label===null?'':'<option value="">'+label+'</option>')+
+  const el = document.getElementById(id);
+  const multi = el.multiple;          // na escolha múltipla, nada marcado = todos
+  if(multi) el.dataset.todos = label || 'Todos';
+  el.innerHTML=(label===null||multi?'':'<option value="">'+label+'</option>')+
     vals.map(v=>`<option value="${esc(v[0])}">${esc(v[1])}</option>`).join('');
+  if(multi) msAtualizar(id);
+}
+
+/* ---------- filtros de escolha múltipla ---------- */
+const MULTI = ['fFil','fTP','fGru','fCmp','fFor','fCC','fCL'];
+function valsDe(id){ const el=document.getElementById(id); return el ? [...el.selectedOptions].map(o=>o.value) : []; }
+function textosMarcados(el){ return [...el.selectedOptions].map(o=>o.text.replace(/ · \d+ linhas$/,'')); }
+
+function msMontar(){
+  MULTI.forEach(id=>{
+    const el = document.getElementById(id);
+    if(!el || el.parentNode.classList.contains('ms')) return;
+    const caixa = document.createElement('div'); caixa.className='ms';
+    el.parentNode.insertBefore(caixa, el); caixa.appendChild(el);
+    const bt = document.createElement('button');
+    bt.type='button'; bt.className='msbt'; bt.id=id+'Bt';
+    bt.setAttribute('aria-haspopup','true'); bt.setAttribute('aria-expanded','false');
+    bt.onclick = e => { e.stopPropagation(); msAlternar(id); };
+    bt.addEventListener('mousedown', e=>e.stopPropagation());
+    const pop = document.createElement('div'); pop.className='mspop'; pop.id=id+'Pop'; pop.hidden=true;
+    pop.addEventListener('mousedown', e=>e.stopPropagation());
+    pop.addEventListener('click', e=>e.stopPropagation());
+    caixa.appendChild(bt); caixa.appendChild(pop);
+    const lab = caixa.closest('.f').querySelector('label'); if(lab) lab.htmlFor = bt.id;
+  });
+  document.addEventListener('mousedown', msFecharTodos);
+  document.addEventListener('keydown', e=>{ if(e.key==='Escape') msFecharTodos(); });
+}
+
+function msAtualizar(id){
+  const el = document.getElementById(id), bt = document.getElementById(id+'Bt');
+  if(!el || !bt) return;
+  const t = textosMarcados(el), todos = el.dataset.todos || 'Todos';
+  bt.classList.toggle('on', t.length>0);
+  bt.title = t.length ? t.join('\n') : todos;
+  bt.innerHTML = !t.length ? esc(todos)
+    : t.length===1 ? esc(t[0])
+    : esc(t[0]) + '<span class="q">+' + (t.length-1) + '</span>';
+}
+
+function msAlternar(id){
+  const pop = document.getElementById(id+'Pop');
+  const abrir = pop.hidden;
+  msFecharTodos();
+  if(abrir) msAbrir(id);
+}
+
+function msFecharTodos(){
+  MULTI.forEach(id=>{
+    const pop=document.getElementById(id+'Pop'), bt=document.getElementById(id+'Bt');
+    if(pop && !pop.hidden){ pop.hidden=true; pop.innerHTML=''; }
+    if(bt) bt.setAttribute('aria-expanded','false');
+  });
+  const f = document.getElementById('filters'); if(f) f.classList.remove('ms-aberto');
+}
+
+function msAbrir(id){
+  const el = document.getElementById(id), pop = document.getElementById(id+'Pop');
+  const bt = document.getElementById(id+'Bt');
+  const muitos = el.options.length > 8;
+  pop.innerHTML = (muitos ? `<input type="search" placeholder="Procurar na lista" aria-label="Procurar na lista">` : '') +
+    `<div class="msacoes"><button type="button" data-a="marcar">${muitos?'Marcar os visíveis':'Marcar todos'}</button>
+     <button type="button" data-a="limpar">Limpar (todos)</button></div>
+     <div class="mslista" role="group"></div>`;
+  const lista = pop.querySelector('.mslista'), busca = pop.querySelector('input[type=search]');
+  const desenhar = () => {
+    const termo = busca ? normalizar(busca.value) : '';
+    const itens = [...el.options].map((o,i)=>({o,i})).filter(x=>!termo || normalizar(x.o.text).includes(termo));
+    lista.innerHTML = itens.length ? itens.map(x=>
+      `<label><input type="checkbox" data-i="${x.i}" ${x.o.selected?'checked':''}><span>${esc(x.o.text)}</span></label>`
+    ).join('') : '<div class="msvazio">Nada encontrado.</div>';
+  };
+  const aplicar = () => { el.dispatchEvent(new Event('change')); };
+  lista.addEventListener('change', e=>{
+    const cb = e.target; if(!cb.dataset || cb.dataset.i===undefined) return;
+    el.options[+cb.dataset.i].selected = cb.checked;
+    aplicar();
+  });
+  pop.querySelector('.msacoes').addEventListener('click', e=>{
+    const a = e.target.dataset && e.target.dataset.a; if(!a) return;
+    if(a==='limpar') [...el.options].forEach(o=>o.selected=false);
+    else lista.querySelectorAll('input[type=checkbox]').forEach(cb=>{ el.options[+cb.dataset.i].selected = true; });
+    aplicar(); desenhar();
+  });
+  if(busca) busca.addEventListener('input', desenhar);
+  desenhar();
+  const r = bt.getBoundingClientRect();
+  pop.classList.toggle('dir', r.left + r.width/2 > window.innerWidth/2);
+  pop.hidden = false; bt.setAttribute('aria-expanded','true');
+  document.getElementById('filters').classList.add('ms-aberto');
+  if(busca && matchMedia('(hover:hover)').matches) busca.focus();
 }
 function planilhaAtual(){ return exportar(true); }
 /* colunas de cada planilha: a lista e os avisos saem iguais */
@@ -1666,7 +1802,7 @@ async function compartilhar(){
 const INTERVALO_BASE = 5*1000;          // confere a base de 5 em 5 segundos
 const INTERVALO_APP = 60*1000;          // a versão do app, de minuto em minuto
 let ultimoApp = 0;
-const VERSAO_APP = 'app 15/09/2026';
+const VERSAO_APP = 'app 16/11/2026';
 let marcaBase = null, checando = false;
 /* enquanto houver base importada à mão nesta tela, a troca automática não entra em
    cima dela: senão a importação some sozinha segundos depois, sem explicação */
@@ -2670,8 +2806,8 @@ function popularFiltros(){
 const SEM_PREENCHER = '--sem-preenchimento--';
 
 function popularContas(){
-  const fil = document.getElementById('fFil').value;
-  const base = PC.concat(SC).filter(r => !fil || r.filial === fil);
+  const fil = new Set(valsDe('fFil'));
+  const base = PC.concat(SC).filter(r => !fil.size || fil.has(r.filial));
   const monta = (campo, nome, rotulo) => {
     const m = new Map();
     let vazios = 0;
@@ -2690,13 +2826,14 @@ function popularContas(){
     {id:'fCL', campo:'classe', nome:nomeCL, rotulo:'classe de valor',  todos:'Todas as classes de valor'}
   ];
   campos.forEach(c => {
-    const el = document.getElementById(c.id), antes = el.value;
+    const el = document.getElementById(c.id), antes = new Set(valsDe(c.id));
     opts(c.id, monta(c.campo, c.nome, c.rotulo), c.todos);
-    if([...el.options].some(o => o.value === antes)) el.value = antes;
+    [...el.options].forEach(o => { o.selected = antes.has(o.value); });
+    msAtualizar(c.id);
   });
 }
 (function init(){
-  aplicarTema(); botaoInstalar(); carimbo(); popularFiltros();
+  aplicarTema(); botaoInstalar(); carimbo(); msMontar(); popularFiltros();
   window.addEventListener('scroll', aoRolar, {passive:true});
   window.addEventListener('offline', ()=>{ carimboPulso(); mostrarAviso('Sem conexão. O monitor segue funcionando com a última base baixada.'); });
   window.addEventListener('online',  ()=>{ carimboPulso(); verificarBase(); });
@@ -2707,7 +2844,7 @@ function popularContas(){
     let espera;
     el.addEventListener(i==='q'?'input':'change',()=>{
       if(i==='fFil') popularContas();
-      sel=null;
+      sel=new Set();
       if(i==='q'){ clearTimeout(espera); espera=setTimeout(render, 120); }
       else render();
     });
